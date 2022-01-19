@@ -6,7 +6,7 @@ global val_trans_x;
 global val_trans_y;
 global val_trans_z;
 global scenario;
-global fig_ax;a
+global fig_ax;
 global h_fig_caz;
 global h_fig_cel;
 global sld_rx;
