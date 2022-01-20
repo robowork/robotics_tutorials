@@ -82,7 +82,8 @@ diffDriveModel.WheelSpeedRange = [-10 10]*2*pi;  %The vehicle speed range is a t
 diffDriveModel.WheelRadius = 0.25;  %The wheel radius of the vehicle, specified in meters.
 %[t,pose] = ode45(@(t,pose)derivative(diffDriveModel,y,inputs),tspan,initialState);
 
-h_fig = figure('CloseRequestFcn',@closeFigureReq); 
+h_fig = figure('CloseRequestFcn',@closeFigureReq, 'Color','w'); 
+grid on;
 
 for i=0:length(m_groundtruth)/2 - 1
     plot(m_groundtruth(1 + 2*i),m_groundtruth(1 + 2*i+1),'o');
@@ -265,6 +266,7 @@ function updateDisplay(hObject, eventdata)
    hold off;
    
    refreshdata(h_fig);
+   grid on;
    
    % save in each iteration
    dummy_eventdata.Key = 'space';

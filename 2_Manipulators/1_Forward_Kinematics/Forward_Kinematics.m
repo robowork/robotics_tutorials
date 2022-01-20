@@ -37,7 +37,7 @@ val_theta_6 = 0;
 
 scenario = 0;
 
-h_uifig = uifigure('Position',[10 10 550 850]); %,'ValueChangedFcn',@updateFigure);
+h_uifig = uifigure('Position',[10 10 550 850], 'Color','w'); %,'ValueChangedFcn',@updateFigure);
 sld_theta_1 = uislider('Parent',h_uifig,'Position',[100 825-0*50+0*5 400 10],'Limits',[-180 180],'Value',val_theta_1);
 sld_theta_2 = uislider('Parent',h_uifig,'Position',[100 825-1*50+1*5 400 10],'Limits',[-180 180],'Value',val_theta_2);
 sld_theta_3 = uislider('Parent',h_uifig,'Position',[100 825-2*50+2*5 400 10],'Limits',[-180 180],'Value',val_theta_3);
@@ -63,7 +63,7 @@ cbx_theta_5 = uicheckbox('Parent',h_uifig,'Position',[5 825-4*50+4*5 400 10],'Te
                          'ValueChangedFcn',@(cbx_theta_5,event) updateUiCheckboxTheta5(cbx_theta_5,sld_theta_5));
 cbx_theta_6 = uicheckbox('Parent',h_uifig,'Position',[5 825-5*50+5*5 400 10],'Text','reset       θ6','Value',0, 'Enable',0,...
                          'ValueChangedFcn',@(cbx_theta_6,event) updateUiCheckboxTheta6(cbx_theta_6,sld_theta_6));
-bg = uibuttongroup(h_uifig,'Position',[5 825-6*50+0*5 550-10 40]);
+bg = uibuttongroup(h_uifig,'Position',[5 825-6*50+0*5 550-10 40], 'Backgroundcolor','w');
 bg.SelectionChangedFcn = @updateUiRadiobutton;
 rb_fk0 = uiradiobutton('Parent',bg,'Position',[5+0*75 0 100 40],'Text','FK #1');
 rb_fk1 = uiradiobutton('Parent',bg,'Position',[5+1*75 0 100 40],'Text','FK #2');

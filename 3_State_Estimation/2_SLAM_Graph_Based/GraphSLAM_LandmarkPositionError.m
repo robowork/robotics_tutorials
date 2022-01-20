@@ -67,8 +67,10 @@ for tt=0:num_poses-1
 end
 
 h_fig = figure;
+set(h_fig, 'Color','w');
+grid on;
 axis equal;
-set(gca,'xlim',[-10.0 10.0],'ylim',[-10 10],'zlim',[-10 10]);
+set(gca,'xlim',1.75*[-10.0 10.0],'ylim',1.75*[-10 10],'zlim',1.75*[-10 10]);
 view(0,90);
 
 hold on; 
@@ -126,7 +128,7 @@ if num_landmarks >= 1
 end
 
 % ITERATIVELY
-for ITERATION=1:10
+for ITERATION=1:1:100
     
     H = zeros(3*num_poses+2*num_landmarks , 3*num_poses+2*num_landmarks); 
     b = zeros(3*num_poses+2*num_landmarks , 1); 

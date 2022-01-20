@@ -184,7 +184,7 @@ ellipsoid_2_I = ellipsoid_2_R_zyx * ellipsoid_2_I * transpose(ellipsoid_2_R_zyx)
 combined_mass = ellipsoid_1_mass + ellipsoid_2_mass;
 combined_I = ellipsoid_1_I + ellipsoid_2_I;
 
-h_uifig = uifigure('Position',[10 10 550 850],'CloseRequestFcn',@closeFigureReq); %,'ValueChangedFcn',@updateFigure);
+h_uifig = uifigure('Position',[10 10 550 850], 'Color','w', 'CloseRequestFcn',@closeFigureReq); %,'ValueChangedFcn',@updateFigure);
 sld_fx = uislider('Parent',h_uifig,'Position',[100 825-0*50+0*5 400 10],'Limits',[-10 10],'Value',val_f_x);
 sld_fy = uislider('Parent',h_uifig,'Position',[100 825-1*50+1*5 400 10],'Limits',[-10 10],'Value',val_f_y);
 sld_fz = uislider('Parent',h_uifig,'Position',[100 825-2*50+2*5 400 10],'Limits',[-10 10],'Value',val_f_z);
@@ -210,7 +210,7 @@ cbx_my = uicheckbox('Parent',h_uifig,'Position',[5 825-4*50+4*5 400 10],'Text','
                     'ValueChangedFcn',@(cbx_my,event) updateUiCheckboxMy(cbx_my,sld_my));
 cbx_mz = uicheckbox('Parent',h_uifig,'Position',[5 825-5*50+5*5 400 10],'Text','reset       mz','Value',0, 'Enable',1,...
                     'ValueChangedFcn',@(cbx_mz,event) updateUiCheckboxMz(cbx_mz,sld_mz));
-bg = uibuttongroup(h_uifig,'Position',[5 825-6*50+0*5 550-10 40]);
+bg = uibuttongroup(h_uifig,'Position',[5 825-6*50+0*5 550-10 40], 'Backgroundcolor','w');
 bg.SelectionChangedFcn = @updateUiRadiobutton;
 rb_t0 = uiradiobutton('Parent',bg,'Position',[5+0*75 0 100 40],'Text','Wrench #1');
 txa_t = uitextarea('Parent',h_uifig,'Position',[160 825-6*50+0*5+10 50 20],'Value','t_x,y,z','Editable','off','BackgroundColor',[0.75 0.75 0.75]);

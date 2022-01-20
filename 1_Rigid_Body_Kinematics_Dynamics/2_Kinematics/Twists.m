@@ -66,7 +66,7 @@ B_p_qz = 0.398;
 
 scenario = 0;
 
-h_uifig = uifigure('Position',[10 10 550 850],'CloseRequestFcn',@closeFigureReq); %,'ValueChangedFcn',@updateFigure);
+h_uifig = uifigure('Position',[10 10 550 850], 'Color','w', 'CloseRequestFcn',@closeFigureReq); %,'ValueChangedFcn',@updateFigure);
 sld_wx = uislider('Parent',h_uifig,'Position',[100 825-0*50+0*5 400 10],'Limits',[-180 180],'Value',val_omega_x);
 sld_wy = uislider('Parent',h_uifig,'Position',[100 825-1*50+1*5 400 10],'Limits',[-180 180],'Value',val_omega_y);
 sld_wz = uislider('Parent',h_uifig,'Position',[100 825-2*50+2*5 400 10],'Limits',[-180 180],'Value',val_omega_z);
@@ -92,7 +92,7 @@ cbx_vy = uicheckbox('Parent',h_uifig,'Position',[5 825-4*50+4*5 400 10],'Text','
                     'ValueChangedFcn',@(cbx_vy,event) updateUiCheckboxVy(cbx_vy,sld_vy));
 cbx_vz = uicheckbox('Parent',h_uifig,'Position',[5 825-5*50+5*5 400 10],'Text','reset       vz','Value',0, 'Enable',1,...
                     'ValueChangedFcn',@(cbx_vz,event) updateUiCheckboxVz(cbx_vz,sld_vz));
-bg = uibuttongroup(h_uifig,'Position',[5 825-6*50+0*5 550-10 40]);
+bg = uibuttongroup(h_uifig,'Position',[5 825-6*50+0*5 550-10 40], 'Backgroundcolor','w');
 bg.SelectionChangedFcn = @updateUiRadiobutton;
 rb_t0 = uiradiobutton('Parent',bg,'Position',[5+0*75 0 100 40],'Text','Twist #1');
 rb_t1 = uiradiobutton('Parent',bg,'Position',[5+1*75 0 100 40],'Text','Twist #2');
