@@ -67,8 +67,6 @@ class AppForm(QMainWindow):
         self.create_main_frame()
         self.create_status_bar()
 
-        #self.textbox.setText('1 2 3 4')
-
 
         self.val_omega_x = 0
         self.val_omega_y = 0
@@ -84,6 +82,14 @@ class AppForm(QMainWindow):
         self.B_p_qx = 0.215
         self.B_p_qy = 0.189
         self.B_p_qz = 0.398
+
+        self.ef_tx.setText(str(self.B_p_x))
+        self.ef_ty.setText(str(self.B_p_y))
+        self.ef_tz.setText(str(self.B_p_z))
+        self.ef_qw.setText(str(self.B_p_qw))
+        self.ef_qx.setText(str(self.B_p_qx))
+        self.ef_qy.setText(str(self.B_p_qy))
+        self.ef_qz.setText(str(self.B_p_qz))
 
         self.timer_period = 0.10
         self.timer_value = 0
@@ -231,6 +237,14 @@ class AppForm(QMainWindow):
         self.canvas.draw()
 
     def on_update_values(self):       
+        self.B_p_x = float(self.ef_tx.text())
+        self.B_p_y = float(self.ef_ty.text())
+        self.B_p_z = float(self.ef_tz.text())
+        self.B_p_qw = float(self.ef_qw.text())
+        self.B_p_qx = float(self.ef_qx.text())
+        self.B_p_qy = float(self.ef_qy.text())
+        self.B_p_qz = float(self.ef_qz.text())
+
         if self.cbx_wx.isChecked():
             self.cbx_wx.setChecked(False)
             self.sld_wx.setValue(0.0)
@@ -279,10 +293,41 @@ class AppForm(QMainWindow):
         self.mpl_toolbar = NavigationToolbar(self.canvas, self.main_frame)
         
 
-        #self.textbox = QLineEdit()
-        #self.textbox.setMinimumWidth(200)
-        #self.connect(self.textbox, SIGNAL('editingFinished ()'), self.on_update_values)
+        self.ef_tx = QLineEdit()
+        self.ef_tx.setMinimumWidth(50)
+        self.ef_tx.setFixedWidth(50)
+        self.connect(self.ef_tx, SIGNAL('editingFinished()'), self.on_update_values)
         
+        self.ef_ty = QLineEdit()
+        self.ef_ty.setMinimumWidth(50)
+        self.ef_ty.setFixedWidth(50)
+        self.connect(self.ef_ty, SIGNAL('editingFinished()'), self.on_update_values)
+
+        self.ef_tz = QLineEdit()
+        self.ef_tz.setMinimumWidth(50)
+        self.ef_tz.setFixedWidth(50)
+        self.connect(self.ef_tz, SIGNAL('editingFinished()'), self.on_update_values)
+
+        self.ef_qw = QLineEdit()
+        self.ef_qw.setMinimumWidth(50)
+        self.ef_qw.setFixedWidth(50)
+        self.connect(self.ef_qw, SIGNAL('editingFinished()'), self.on_update_values)
+
+        self.ef_qx = QLineEdit()
+        self.ef_qx.setMinimumWidth(50)
+        self.ef_qx.setFixedWidth(50)
+        self.connect(self.ef_qx, SIGNAL('editingFinished()'), self.on_update_values)
+
+        self.ef_qy = QLineEdit()
+        self.ef_qy.setMinimumWidth(50)
+        self.ef_qy.setFixedWidth(50)
+        self.connect(self.ef_qy, SIGNAL('editingFinished()'), self.on_update_values)
+
+        self.ef_qz = QLineEdit()
+        self.ef_qz.setMinimumWidth(50)
+        self.ef_qz.setFixedWidth(50)
+        self.connect(self.ef_qz, SIGNAL('editingFinished()'), self.on_update_values)
+
         #self.draw_button = QPushButton("&Draw")
         #self.connect(self.draw_button, SIGNAL('clicked()'), self.on_update_values)
         
@@ -397,7 +442,7 @@ class AppForm(QMainWindow):
             hbox_pz.setAlignment(w, Qt.AlignVCenter)
 
         hbox_rb = QHBoxLayout()
-        for w in [ self.rb_t0, self.rb_t1]:
+        for w in [ self.rb_t0, self.rb_t1, QLabel('t_x,y,z'), self.ef_tx, self.ef_ty, self.ef_tz, QLabel('q_w,x,y,z'), self.ef_qw, self.ef_qx, self.ef_qy, self.ef_qz]:
             hbox_rb.addWidget(w)
             hbox_rb.setAlignment(w, Qt.AlignVCenter)
 
