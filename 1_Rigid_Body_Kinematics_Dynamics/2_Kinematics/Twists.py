@@ -180,9 +180,9 @@ class AppForm(QMainWindow):
             self.axes.quiver(self.quiver_Bp[0], self.quiver_Bp[1], self.quiver_Bp[2], scale_full*(self.quiver_Bx[0]-self.quiver_Bp[0]), scale_full*(self.quiver_Bx[1]-self.quiver_Bp[1]), scale_full*(self.quiver_Bx[2]-self.quiver_Bp[2]), color=['r'], arrow_length_ratio=0.15)
             self.axes.quiver(self.quiver_Bp[0], self.quiver_Bp[1], self.quiver_Bp[2], scale_full*(self.quiver_By[0]-self.quiver_Bp[0]), scale_full*(self.quiver_By[1]-self.quiver_Bp[1]), scale_full*(self.quiver_By[2]-self.quiver_Bp[2]), color=['g'], arrow_length_ratio=0.15)
             self.axes.quiver(self.quiver_Bp[0], self.quiver_Bp[1], self.quiver_Bp[2], scale_full*(self.quiver_Bz[0]-self.quiver_Bp[0]), scale_full*(self.quiver_Bz[1]-self.quiver_Bp[1]), scale_full*(self.quiver_Bz[2]-self.quiver_Bp[2]), color=['b'], arrow_length_ratio=0.15)
-            self.axes.set_xlim(-1.0, 1.0)
-            self.axes.set_ylim(-1.0, 1.0)
-            self.axes.set_zlim(-1.0, 1.0)
+            self.axes.set_xlim(-3.0, 3.0)
+            self.axes.set_ylim(-3.0, 3.0)
+            self.axes.set_zlim(-3.0, 3.0)
 
         elif self.scenario == 1:
             # Twist expressed w.r.t. Space Frame
@@ -230,9 +230,9 @@ class AppForm(QMainWindow):
             self.axes.quiver(self.quiver_Bp[0], self.quiver_Bp[1], self.quiver_Bp[2], scale_full*(self.quiver_Bx[0]-self.quiver_Bp[0]), scale_full*(self.quiver_Bx[1]-self.quiver_Bp[1]), scale_full*(self.quiver_Bx[2]-self.quiver_Bp[2]), color=['r'], arrow_length_ratio=0.15)
             self.axes.quiver(self.quiver_Bp[0], self.quiver_Bp[1], self.quiver_Bp[2], scale_full*(self.quiver_By[0]-self.quiver_Bp[0]), scale_full*(self.quiver_By[1]-self.quiver_Bp[1]), scale_full*(self.quiver_By[2]-self.quiver_Bp[2]), color=['g'], arrow_length_ratio=0.15)
             self.axes.quiver(self.quiver_Bp[0], self.quiver_Bp[1], self.quiver_Bp[2], scale_full*(self.quiver_Bz[0]-self.quiver_Bp[0]), scale_full*(self.quiver_Bz[1]-self.quiver_Bp[1]), scale_full*(self.quiver_Bz[2]-self.quiver_Bp[2]), color=['b'], arrow_length_ratio=0.15)
-            self.axes.set_xlim(-1.0, 1.0)
-            self.axes.set_ylim(-1.0, 1.0)
-            self.axes.set_zlim(-1.0, 1.0)
+            self.axes.set_xlim(-3.0, 3.0)
+            self.axes.set_ylim(-3.0, 3.0)
+            self.axes.set_zlim(-3.0, 3.0)
 
         self.canvas.draw()
 
