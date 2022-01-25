@@ -148,7 +148,7 @@ ellipsoid_2_angle_x = deg2rad(45);
 
 [ellipsoid_1_X,ellipsoid_1_Y,ellipsoid_1_Z] = ellipsoid(0,0,0,ellipsoid_1_a,ellipsoid_1_b,ellipsoid_1_c,10);
 ellipsoid_1_I = (ellipsoid_1_mass/5)*[ellipsoid_1_b^2+ellipsoid_1_c^2 0                               0;
-                                      0                               ellipsoid_1_a^1+ellipsoid_1_c^2 0;
+                                      0                               ellipsoid_1_a^2+ellipsoid_1_c^2 0;
                                       0                               0                               ellipsoid_1_a^2+ellipsoid_1_b^2];
 ellipsoid_1_R_z = [cos(ellipsoid_1_angle_z) -sin(ellipsoid_1_angle_z) 0;
                     sin(ellipsoid_1_angle_z) cos(ellipsoid_1_angle_z)  0;
@@ -165,7 +165,7 @@ ellipsoid_1_I = ellipsoid_1_R_zyx * ellipsoid_1_I * transpose(ellipsoid_1_R_zyx)
 
 [ellipsoid_2_X,ellipsoid_2_Y,ellipsoid_2_Z] = ellipsoid(0,0,0,ellipsoid_2_a,ellipsoid_2_b,ellipsoid_2_c,10);
 ellipsoid_2_I = (ellipsoid_2_mass/5)*[ellipsoid_2_b^2+ellipsoid_2_c^2 0                               0;
-                                      0                               ellipsoid_2_a^1+ellipsoid_2_c^2 0;
+                                      0                               ellipsoid_2_a^2+ellipsoid_2_c^2 0;
                                       0                               0                               ellipsoid_2_a^2+ellipsoid_2_b^2];
 ellipsoid_2_R_z = [cos(ellipsoid_2_angle_z) -sin(ellipsoid_2_angle_z) 0;
                     sin(ellipsoid_2_angle_z) cos(ellipsoid_2_angle_z)  0;

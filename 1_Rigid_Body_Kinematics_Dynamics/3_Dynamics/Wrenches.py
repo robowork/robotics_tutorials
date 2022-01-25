@@ -135,6 +135,13 @@ class AppForm(QMainWindow):
         ellipsoid_1_angle_y = np.deg2rad(30)
         ellipsoid_1_angle_x = np.deg2rad(15)
 
+        ellipsoid_1_I = (ellipsoid_1_mass/5)*np.array([[ellipsoid_1_b**2+ellipsoid_1_c**2, 0, 0], [0, ellipsoid_1_a**2+ellipsoid_1_c**2, 0], [0, 0, ellipsoid_1_a**2+ellipsoid_1_b**2]])
+        ellipsoid_1_R_z = np.array([[np.cos(ellipsoid_1_angle_z), -np.sin(ellipsoid_1_angle_z), 0], [np.sin(ellipsoid_1_angle_z), np.cos(ellipsoid_1_angle_z), 0], [0, 0, 1]])
+        ellipsoid_1_R_y = np.array([[np.cos(ellipsoid_1_angle_y), 0, np.sin(ellipsoid_1_angle_y)], [0, 1, 0], [-np.sin(ellipsoid_1_angle_y), 0, np.cos(ellipsoid_1_angle_y)]])
+        ellipsoid_1_R_x = np.array([[1, 0, 0], [0, np.cos(ellipsoid_1_angle_x), -np.sin(ellipsoid_1_angle_x)], [0, np.sin(ellipsoid_1_angle_x), np.cos(ellipsoid_1_angle_x)]])
+        ellipsoid_1_R_zyx = (ellipsoid_1_R_z.dot(ellipsoid_1_R_y)).dot(ellipsoid_1_R_x)
+        ellipsoid_1_I = ellipsoid_1_R_zyx * ellipsoid_1_I * np.transpose(ellipsoid_1_R_zyx);
+
         ellipsoid_2_mass = 5.0
         ellipsoid_2_a = 1.0
         ellipsoid_2_b = 0.10
@@ -142,10 +149,13 @@ class AppForm(QMainWindow):
         ellipsoid_2_angle_z = np.deg2rad(-30)
         ellipsoid_2_angle_y = np.deg2rad(-15)
         ellipsoid_2_angle_x = np.deg2rad(45)
-
-        ellipsoid_1_I = np.eye(3)
         
-        ellipsoid_2_I = np.eye(3)
+        ellipsoid_2_I = (ellipsoid_2_mass/5)*np.array([[ellipsoid_2_b**2+ellipsoid_2_c**2, 0, 0], [0, ellipsoid_2_a**2+ellipsoid_2_c**2, 0], [0, 0, ellipsoid_2_a**2+ellipsoid_2_b**2]])
+        ellipsoid_2_R_z = np.array([[np.cos(ellipsoid_2_angle_z), -np.sin(ellipsoid_2_angle_z), 0], [np.sin(ellipsoid_2_angle_z), np.cos(ellipsoid_2_angle_z), 0], [0, 0, 1]])
+        ellipsoid_2_R_y = np.array([[np.cos(ellipsoid_2_angle_y), 0, np.sin(ellipsoid_2_angle_y)], [0, 1, 0], [-np.sin(ellipsoid_2_angle_y), 0, np.cos(ellipsoid_2_angle_y)]])
+        ellipsoid_2_R_x = np.array([[1, 0, 0], [0, np.cos(ellipsoid_2_angle_x), -np.sin(ellipsoid_2_angle_x)], [0, np.sin(ellipsoid_2_angle_x), np.cos(ellipsoid_2_angle_x)]])
+        ellipsoid_2_R_zyx = (ellipsoid_2_R_z.dot(ellipsoid_2_R_y)).dot(ellipsoid_2_R_x)
+        ellipsoid_2_I = ellipsoid_2_R_zyx * ellipsoid_2_I * np.transpose(ellipsoid_2_R_zyx);
 
         # combined rigid body mass and inertia tensor
         self.combined_mass = ellipsoid_1_mass + ellipsoid_2_mass;
