@@ -70,19 +70,19 @@ class AppForm(QMainWindow):
         #self.textbox.setText('1 2 3 4')
 
 
-        self.val_rot_x = 0;
-        self.val_rot_y = 0;
-        self.val_rot_z = 0;
-        self.val_trans_x = 0;
-        self.val_trans_y = 0;
-        self.val_trans_z = 0;
+        self.val_rot_x = 0
+        self.val_rot_y = 0
+        self.val_rot_z = 0
+        self.val_trans_x = 0
+        self.val_trans_y = 0
+        self.val_trans_z = 0
 
-        self.scenario = 0;
+        self.scenario = 0
         
         # Space Frame / origin
-        self.S_p = np.array([[0], [0], [0]]);
-        self.S_R = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]);
-        self.S_T = np.concatenate((np.concatenate((self.S_R, self.S_p), axis=1), np.array([[0, 0, 0, 1]])), axis=0);
+        self.S_p = np.array([[0], [0], [0]])
+        self.S_R = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+        self.S_T = np.concatenate((np.concatenate((self.S_R, self.S_p), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
    
         self.quiver_Sx = np.array([[1],[0],[0]])
         self.quiver_Sy = np.array([[0],[1],[0]])
@@ -251,7 +251,7 @@ class AppForm(QMainWindow):
             B_R_x = np.array([[1, 0, 0], [0, np.cos(angle_x), -np.sin(angle_x)], [0, np.sin(angle_x), np.cos(angle_x)]])
             B_T_x = np.concatenate((np.concatenate((B_R_x, np.zeros((3, 1))), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
 
-            B_T_zyx = (((self.S_T.dot(B_T_zyx_trans)).dot(B_T_z)).dot(B_T_y)).dot(B_T_x);
+            B_T_zyx = (((self.S_T.dot(B_T_zyx_trans)).dot(B_T_z)).dot(B_T_y)).dot(B_T_x)
 
             B_T = B_T_zyx
             B_p = B_T_zyx[0:3,3]
@@ -288,7 +288,7 @@ class AppForm(QMainWindow):
             B_T_y = np.concatenate((np.concatenate((B_R_y, np.zeros((3, 1))), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
             B_R_x = np.array([[1, 0, 0], [0, np.cos(angle_x), -np.sin(angle_x)], [0, np.sin(angle_x), np.cos(angle_x)]])
             B_T_x = np.concatenate((np.concatenate((B_R_x, np.zeros((3, 1))), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
-            B_T_zyx = (((self.S_T.dot(B_T_zyx_trans)).dot(B_T_z)).dot(B_T_y)).dot(B_T_x);
+            B_T_zyx = (((self.S_T.dot(B_T_zyx_trans)).dot(B_T_z)).dot(B_T_y)).dot(B_T_x)
 
             B_p_zyx = B_T_zyx[0:3,3]
             B_R_zyx = B_T_zyx[0:3,0:3]
@@ -344,7 +344,7 @@ class AppForm(QMainWindow):
             B_T_y = np.concatenate((np.concatenate((B_R_y, np.zeros((3, 1))), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
             B_R_x = np.array([[1, 0, 0], [0, np.cos(angle_x), -np.sin(angle_x)], [0, np.sin(angle_x), np.cos(angle_x)]])
             B_T_x = np.concatenate((np.concatenate((B_R_x, np.zeros((3, 1))), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
-            B_T_zyx = (((self.S_T.dot(B_T_zyx_trans)).dot(B_T_z)).dot(B_T_y)).dot(B_T_x);
+            B_T_zyx = (((self.S_T.dot(B_T_zyx_trans)).dot(B_T_z)).dot(B_T_y)).dot(B_T_x)
 
             B_p_zyx = B_T_zyx[0:3,3]
             B_R_zyx = B_T_zyx[0:3,0:3]
@@ -363,7 +363,7 @@ class AppForm(QMainWindow):
             B_extra_R_x = axangles.axangle2mat(np.array([1, 0, 0]), np.deg2rad(self.val_rot_x))
             B_extra_T_x = np.concatenate((np.concatenate((B_extra_R_x, np.zeros((3, 1))), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
 
-            B_T = B_extra_T_x.dot(B_extra_T_y.dot(B_extra_T_z.dot(B_extra_T_trans.dot(B_T_zyx))));  # Pre-multiply
+            B_T = B_extra_T_x.dot(B_extra_T_y.dot(B_extra_T_z.dot(B_extra_T_trans.dot(B_T_zyx))))  # Pre-multiply
 
             self.quiver_Bp = B_T.dot(np.concatenate((self.S_p, np.array([[1]])), axis=0))
             self.quiver_Bx = B_T.dot(np.concatenate((self.quiver_Sx, np.array([[1]])), axis=0))
