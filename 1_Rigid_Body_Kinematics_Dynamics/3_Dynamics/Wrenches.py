@@ -10,6 +10,7 @@ import matplotlib as plt
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
+from matplotlib import cm
 
 from mpl_toolkits import mplot3d
 
@@ -135,13 +136,21 @@ class AppForm(QMainWindow):
         ellipsoid_1_angle_y = np.deg2rad(30)
         ellipsoid_1_angle_x = np.deg2rad(15)
 
+        # Spherical angles
+        ellipsoid_1_u = np.linspace(0, 2*np.pi, 25)
+        ellipsoid_1_v = np.linspace(0, np.pi, 25)
+        # Cartesian coordinates
+        self.ellipsoid_1_x = ellipsoid_1_a * np.outer(np.cos(ellipsoid_1_u), np.sin(ellipsoid_1_v))
+        self.ellipsoid_1_y = ellipsoid_1_b * np.outer(np.sin(ellipsoid_1_u), np.sin(ellipsoid_1_v))
+        self.ellipsoid_1_z = ellipsoid_1_c * np.outer(np.ones_like(ellipsoid_1_u), np.cos(ellipsoid_1_v))
+
         ellipsoid_1_I = (ellipsoid_1_mass/5)*np.array([[ellipsoid_1_b**2+ellipsoid_1_c**2, 0, 0], [0, ellipsoid_1_a**2+ellipsoid_1_c**2, 0], [0, 0, ellipsoid_1_a**2+ellipsoid_1_b**2]])
         ellipsoid_1_R_z = np.array([[np.cos(ellipsoid_1_angle_z), -np.sin(ellipsoid_1_angle_z), 0], [np.sin(ellipsoid_1_angle_z), np.cos(ellipsoid_1_angle_z), 0], [0, 0, 1]])
         ellipsoid_1_R_y = np.array([[np.cos(ellipsoid_1_angle_y), 0, np.sin(ellipsoid_1_angle_y)], [0, 1, 0], [-np.sin(ellipsoid_1_angle_y), 0, np.cos(ellipsoid_1_angle_y)]])
         ellipsoid_1_R_x = np.array([[1, 0, 0], [0, np.cos(ellipsoid_1_angle_x), -np.sin(ellipsoid_1_angle_x)], [0, np.sin(ellipsoid_1_angle_x), np.cos(ellipsoid_1_angle_x)]])
         ellipsoid_1_R_zyx = (ellipsoid_1_R_z.dot(ellipsoid_1_R_y)).dot(ellipsoid_1_R_x)
-        ellipsoid_1_I = ellipsoid_1_R_zyx * ellipsoid_1_I * np.transpose(ellipsoid_1_R_zyx);
-
+        ellipsoid_1_I = ellipsoid_1_R_zyx * ellipsoid_1_I * np.transpose(ellipsoid_1_R_zyx)
+        
         ellipsoid_2_mass = 5.0
         ellipsoid_2_a = 1.0
         ellipsoid_2_b = 0.10
@@ -150,16 +159,24 @@ class AppForm(QMainWindow):
         ellipsoid_2_angle_y = np.deg2rad(-15)
         ellipsoid_2_angle_x = np.deg2rad(45)
         
+        # Spherical angles
+        ellipsoid_2_u = np.linspace(0, 2*np.pi, 25)
+        ellipsoid_2_v = np.linspace(0, np.pi, 25)
+        # Cartesian coordinates
+        self.ellipsoid_2_x = ellipsoid_2_a * np.outer(np.cos(ellipsoid_2_u), np.sin(ellipsoid_2_v))
+        self.ellipsoid_2_y = ellipsoid_2_b * np.outer(np.sin(ellipsoid_2_u), np.sin(ellipsoid_2_v))
+        self.ellipsoid_2_z = ellipsoid_2_c * np.outer(np.ones_like(ellipsoid_2_u), np.cos(ellipsoid_2_v))
+
         ellipsoid_2_I = (ellipsoid_2_mass/5)*np.array([[ellipsoid_2_b**2+ellipsoid_2_c**2, 0, 0], [0, ellipsoid_2_a**2+ellipsoid_2_c**2, 0], [0, 0, ellipsoid_2_a**2+ellipsoid_2_b**2]])
         ellipsoid_2_R_z = np.array([[np.cos(ellipsoid_2_angle_z), -np.sin(ellipsoid_2_angle_z), 0], [np.sin(ellipsoid_2_angle_z), np.cos(ellipsoid_2_angle_z), 0], [0, 0, 1]])
         ellipsoid_2_R_y = np.array([[np.cos(ellipsoid_2_angle_y), 0, np.sin(ellipsoid_2_angle_y)], [0, 1, 0], [-np.sin(ellipsoid_2_angle_y), 0, np.cos(ellipsoid_2_angle_y)]])
         ellipsoid_2_R_x = np.array([[1, 0, 0], [0, np.cos(ellipsoid_2_angle_x), -np.sin(ellipsoid_2_angle_x)], [0, np.sin(ellipsoid_2_angle_x), np.cos(ellipsoid_2_angle_x)]])
         ellipsoid_2_R_zyx = (ellipsoid_2_R_z.dot(ellipsoid_2_R_y)).dot(ellipsoid_2_R_x)
-        ellipsoid_2_I = ellipsoid_2_R_zyx * ellipsoid_2_I * np.transpose(ellipsoid_2_R_zyx);
+        ellipsoid_2_I = ellipsoid_2_R_zyx * ellipsoid_2_I * np.transpose(ellipsoid_2_R_zyx)
 
         # combined rigid body mass and inertia tensor
-        self.combined_mass = ellipsoid_1_mass + ellipsoid_2_mass;
-        self.combined_I = ellipsoid_1_I + ellipsoid_2_I;
+        self.combined_mass = ellipsoid_1_mass + ellipsoid_2_mass
+        self.combined_I = ellipsoid_1_I + ellipsoid_2_I
 
         # Space Frame / origin
         self.S_p = np.array([[0], [0], [0]])
@@ -248,10 +265,10 @@ class AppForm(QMainWindow):
             self.B_p_y = B_T[1][3]
             self.B_p_z = B_T[2][3]
             B_p_q = quaternions.mat2quat(B_T[0:3,0:3])
-            self.B_p_qw = B_p_q[0];
-            self.B_p_qx = B_p_q[1];
-            self.B_p_qy = B_p_q[2];
-            self.B_p_qz = B_p_q[3];
+            self.B_p_qw = B_p_q[0]
+            self.B_p_qx = B_p_q[1]
+            self.B_p_qy = B_p_q[2]
+            self.B_p_qz = B_p_q[3]
 
             self.quiver_Bp = B_T.dot(np.concatenate((self.S_p, np.array([[1]])), axis=0))
             self.quiver_Bx = B_T.dot(np.concatenate((self.quiver_Sx, np.array([[1]])), axis=0))
@@ -271,13 +288,13 @@ class AppForm(QMainWindow):
             # Forward dynamics - compute updated twist
             dot_Twist_B = np.linalg.solve(G, Wrench_B + adv_B_transp.dot(G).dot(Twist_B))
       
-            Twist_B = Twist_B + dot_Twist_B * self.timer_period;
-            self.omega_x = np.rad2deg(Twist_B[0][0]);
-            self.omega_y = np.rad2deg(Twist_B[1][0]);
-            self.omega_z = np.rad2deg(Twist_B[2][0]);
-            self.vel_x = Twist_B[3][0];
-            self.vel_y = Twist_B[4][0];
-            self.vel_z = Twist_B[5][0];
+            Twist_B = Twist_B + dot_Twist_B * self.timer_period
+            self.omega_x = np.rad2deg(Twist_B[0][0])
+            self.omega_y = np.rad2deg(Twist_B[1][0])
+            self.omega_z = np.rad2deg(Twist_B[2][0])
+            self.vel_x = Twist_B[3][0]
+            self.vel_y = Twist_B[4][0]
+            self.vel_z = Twist_B[5][0]
 
             # these are just to scale arrows of different coordinate systems to better distinguish between them
             scale_small = 0.25
@@ -295,6 +312,28 @@ class AppForm(QMainWindow):
             self.axes.set_xlim(-3.0, 3.0)
             self.axes.set_ylim(-3.0, 3.0)
             self.axes.set_zlim(-3.0, 3.0)
+
+            ellipsoid_1_x_transformed = self.ellipsoid_1_x.copy()
+            ellipsoid_1_y_transformed = self.ellipsoid_1_y.copy()
+            ellipsoid_1_z_transformed = self.ellipsoid_1_z.copy()
+            for j in range(len(ellipsoid_1_x_transformed)):
+                for i in range(len(ellipsoid_1_x_transformed[j])):
+                    ellipsoid_1_i_xyz = B_T.dot(np.array([[ellipsoid_1_x_transformed[i][j]], [ellipsoid_1_y_transformed[i][j]], [ellipsoid_1_z_transformed[i][j]], [1]]))
+                    ellipsoid_1_x_transformed[i][j] = ellipsoid_1_i_xyz[0][0]
+                    ellipsoid_1_y_transformed[i][j] = ellipsoid_1_i_xyz[1][0]
+                    ellipsoid_1_z_transformed[i][j] = ellipsoid_1_i_xyz[2][0]
+            self.axes.plot_surface(ellipsoid_1_x_transformed, ellipsoid_1_y_transformed, ellipsoid_1_z_transformed, rstride=4, cstride=4, cmap=cm.jet)
+
+            ellipsoid_2_x_transformed = self.ellipsoid_2_x.copy()
+            ellipsoid_2_y_transformed = self.ellipsoid_2_y.copy()
+            ellipsoid_2_z_transformed = self.ellipsoid_2_z.copy()
+            for j in range(len(ellipsoid_2_x_transformed)):
+                for i in range(len(ellipsoid_2_x_transformed[j])):
+                    ellipsoid_2_i_xyz = B_T.dot(np.array([[ellipsoid_2_x_transformed[i][j]], [ellipsoid_2_y_transformed[i][j]], [ellipsoid_2_z_transformed[i][j]], [1]]))
+                    ellipsoid_2_x_transformed[i][j] = ellipsoid_2_i_xyz[0][0]
+                    ellipsoid_2_y_transformed[i][j] = ellipsoid_2_i_xyz[1][0]
+                    ellipsoid_2_z_transformed[i][j] = ellipsoid_2_i_xyz[2][0]
+            self.axes.plot_surface(ellipsoid_2_x_transformed, ellipsoid_2_y_transformed, ellipsoid_2_z_transformed, rstride=4, cstride=4, cmap=cm.jet)
 
         self.canvas.draw()
 
