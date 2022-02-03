@@ -61,7 +61,7 @@ class DoubleSlider(QSlider):
 class AppForm(QMainWindow):
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
-        self.setWindowTitle('Demo: PyQt with matplotlib')
+        self.setWindowTitle('Rigid Body Motion: Transformations')
 
         self.create_menu()
         self.create_main_frame()
@@ -78,15 +78,32 @@ class AppForm(QMainWindow):
         self.val_trans_z = 0
 
         self.scenario = 0
+
+        self.cbx_px.setEnabled(False)
+        self.sld_px.setEnabled(False)
+        self.cbx_py.setEnabled(False)
+        self.sld_py.setEnabled(False)
+        self.cbx_pz.setEnabled(False)
+        self.sld_pz.setEnabled(False)
         
         # Space Frame / origin
-        self.S_p = np.array([[0], [0], [0]])
-        self.S_R = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+        self.S_p = np.array([[0], \
+                             [0], \
+                             [0]])
+        self.S_R = np.array([[1, 0, 0], \
+                             [0, 1, 0], \
+                             [0, 0, 1]])
         self.S_T = np.concatenate((np.concatenate((self.S_R, self.S_p), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
    
-        self.quiver_Sx = np.array([[1],[0],[0]])
-        self.quiver_Sy = np.array([[0],[1],[0]])
-        self.quiver_Sz = np.array([[0],[0],[1]])
+        self.quiver_Sx = np.array([[1], \
+                                   [0], \
+                                   [0]])
+        self.quiver_Sy = np.array([[0], \
+                                   [1], \
+                                   [0]])
+        self.quiver_Sz = np.array([[0], \
+                                   [0], \
+                                   [1]])
         self.translation_S = self.S_p
         self.rotation_S = quaternions.mat2quat(self.S_R)
 
@@ -111,13 +128,20 @@ class AppForm(QMainWindow):
             angle_z = np.deg2rad(self.val_rot_z)
             angle_y = np.deg2rad(self.val_rot_y)
             angle_x = np.deg2rad(self.val_rot_x)
-            B_R_z = np.array([[np.cos(angle_z), -np.sin(angle_z), 0], [np.sin(angle_z), np.cos(angle_z), 0], [0, 0, 1]])
-            B_R_y = np.array([[np.cos(angle_y), 0, np.sin(angle_y)], [0, 1, 0],[-np.sin(angle_y), 0, np.cos(angle_y)]])
-            B_R_x = np.array([[1, 0, 0], [0, np.cos(angle_x), -np.sin(angle_x)], [0, np.sin(angle_x), np.cos(angle_x)]])
+            B_R_z = np.array([[np.cos(angle_z), -np.sin(angle_z), 0], \
+                              [np.sin(angle_z),  np.cos(angle_z), 0], \
+                              [0,                0,               1]])
+            B_R_y = np.array([[np.cos(angle_y),  0, np.sin(angle_y)], \
+                              [0,                1,               0], \
+                              [-np.sin(angle_y), 0, np.cos(angle_y)]])
+            B_R_x = np.array([[1,               0,                0], \
+                              [0, np.cos(angle_x), -np.sin(angle_x)], \
+                              [0, np.sin(angle_x),  np.cos(angle_x)]])
 
             B_p_zyx = self.S_p
             B_R_zyx = ((self.S_R.dot(B_R_z)).dot(B_R_y)).dot(B_R_x)
-            B_T_zyx = np.concatenate((np.concatenate((B_R_zyx, B_p_zyx), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
+            B_T_zyx = np.concatenate((np.concatenate((B_R_zyx, B_p_zyx), axis=1), \
+                                      np.array([[0, 0, 0, 1]])), axis=0)
 
             B_p = B_T_zyx[0:3,3]
             B_R = B_T_zyx[0:3,0:3]
@@ -146,13 +170,20 @@ class AppForm(QMainWindow):
             angle_z = np.deg2rad(45)
             angle_y = np.deg2rad(30)
             angle_x = np.deg2rad(15)
-            B_R_z = np.array([[np.cos(angle_z), -np.sin(angle_z), 0], [np.sin(angle_z), np.cos(angle_z), 0], [0, 0, 1]])
-            B_R_y = np.array([[np.cos(angle_y), 0, np.sin(angle_y)], [0, 1, 0],[-np.sin(angle_y), 0, np.cos(angle_y)]])
-            B_R_x = np.array([[1, 0, 0], [0, np.cos(angle_x), -np.sin(angle_x)], [0, np.sin(angle_x), np.cos(angle_x)]])
+            B_R_z = np.array([[np.cos(angle_z), -np.sin(angle_z), 0], \
+                              [np.sin(angle_z),  np.cos(angle_z), 0], \
+                              [0, 0, 1]])
+            B_R_y = np.array([[np.cos(angle_y),  0, np.sin(angle_y)], \
+                              [0,                1,               0], \
+                              [-np.sin(angle_y), 0, np.cos(angle_y)]])
+            B_R_x = np.array([[1,               0,                0], \
+                              [0, np.cos(angle_x), -np.sin(angle_x)], \
+                              [0, np.sin(angle_x),  np.cos(angle_x)]])
         
             B_p_zyx = self.S_p
             B_R_zyx = ((self.S_R.dot(B_R_z)).dot(B_R_y)).dot(B_R_x)
-            B_T_zyx = np.concatenate((np.concatenate((B_R_zyx, B_p_zyx), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
+            B_T_zyx = np.concatenate((np.concatenate((B_R_zyx, B_p_zyx), axis=1), \
+                                      np.array([[0, 0, 0, 1]])), axis=0)
 
             self.quiver_Bp_zyx = B_T_zyx.dot(np.concatenate((self.S_p, np.array([[1]])), axis=0))
             self.quiver_Bx_zyx = B_T_zyx.dot(np.concatenate((self.quiver_Sx, np.array([[1]])), axis=0))
@@ -194,13 +225,20 @@ class AppForm(QMainWindow):
             angle_z = np.deg2rad(45)
             angle_y = np.deg2rad(30)
             angle_x = np.deg2rad(15)
-            B_R_z = np.array([[np.cos(angle_z), -np.sin(angle_z), 0], [np.sin(angle_z), np.cos(angle_z), 0], [0, 0, 1]])
-            B_R_y = np.array([[np.cos(angle_y), 0, np.sin(angle_y)], [0, 1, 0],[-np.sin(angle_y), 0, np.cos(angle_y)]])
-            B_R_x = np.array([[1, 0, 0], [0, np.cos(angle_x), -np.sin(angle_x)], [0, np.sin(angle_x), np.cos(angle_x)]])
+            B_R_z = np.array([[np.cos(angle_z), -np.sin(angle_z), 0], \
+                              [np.sin(angle_z),  np.cos(angle_z), 0], \
+                              [0, 0, 1]])
+            B_R_y = np.array([[np.cos(angle_y),  0, np.sin(angle_y)], \
+                              [0,                1,               0], \
+                              [-np.sin(angle_y), 0, np.cos(angle_y)]])
+            B_R_x = np.array([[1,               0,                0], \
+                              [0, np.cos(angle_x), -np.sin(angle_x)], \
+                              [0, np.sin(angle_x),  np.cos(angle_x)]])
         
             B_p_zyx = self.S_p
             B_R_zyx = ((self.S_R.dot(B_R_z)).dot(B_R_y)).dot(B_R_x)
-            B_T_zyx = np.concatenate((np.concatenate((B_R_zyx, B_p_zyx), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
+            B_T_zyx = np.concatenate((np.concatenate((B_R_zyx, B_p_zyx), axis=1), \
+                                      np.array([[0, 0, 0, 1]])), axis=0)
 
             self.quiver_Bp_zyx = B_T_zyx.dot(np.concatenate((self.S_p, np.array([[1]])), axis=0))
             self.quiver_Bx_zyx = B_T_zyx.dot(np.concatenate((self.quiver_Sx, np.array([[1]])), axis=0))
@@ -239,17 +277,29 @@ class AppForm(QMainWindow):
 
         elif self.scenario == 3:
             # Translation w.r.t. all axes, Rotation sequence around z-y-x-axes (post-multiply, each sequential transformation w.r.t. Body Frame)
-            B_p_zyx = np.array([[self.val_trans_x], [self.val_trans_y], [self.val_trans_z]])
-            B_T_zyx_trans = np.concatenate((np.concatenate((np.eye(3), B_p_zyx), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
+            B_p_zyx = np.array([[self.val_trans_x], \
+                                [self.val_trans_y], \
+                                [self.val_trans_z]])
+            B_T_zyx_trans = np.concatenate((np.concatenate((np.eye(3), B_p_zyx), axis=1), \
+                                            np.array([[0, 0, 0, 1]])), axis=0)
             angle_z = np.deg2rad(self.val_rot_z)
             angle_y = np.deg2rad(self.val_rot_y)
             angle_x = np.deg2rad(self.val_rot_x)
-            B_R_z = np.array([[np.cos(angle_z), -np.sin(angle_z), 0], [np.sin(angle_z), np.cos(angle_z), 0], [0, 0, 1]])
-            B_T_z = np.concatenate((np.concatenate((B_R_z, np.zeros((3, 1))), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
-            B_R_y = np.array([[np.cos(angle_y), 0, np.sin(angle_y)], [0, 1, 0],[-np.sin(angle_y), 0, np.cos(angle_y)]])
-            B_T_y = np.concatenate((np.concatenate((B_R_y, np.zeros((3, 1))), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
-            B_R_x = np.array([[1, 0, 0], [0, np.cos(angle_x), -np.sin(angle_x)], [0, np.sin(angle_x), np.cos(angle_x)]])
-            B_T_x = np.concatenate((np.concatenate((B_R_x, np.zeros((3, 1))), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
+            B_R_z = np.array([[np.cos(angle_z), -np.sin(angle_z), 0], \
+                              [np.sin(angle_z),  np.cos(angle_z), 0], \
+                              [0,                0,               1]])
+            B_T_z = np.concatenate((np.concatenate((B_R_z, np.zeros((3, 1))), axis=1), \
+                                    np.array([[0, 0, 0, 1]])), axis=0)
+            B_R_y = np.array([[np.cos(angle_y),  0, np.sin(angle_y)], \
+                              [0,                1,               0], \
+                              [-np.sin(angle_y), 0, np.cos(angle_y)]])
+            B_T_y = np.concatenate((np.concatenate((B_R_y, np.zeros((3, 1))), axis=1), \
+                                    np.array([[0, 0, 0, 1]])), axis=0)
+            B_R_x = np.array([[1,               0,                0], \
+                              [0, np.cos(angle_x), -np.sin(angle_x)], \
+                              [0, np.sin(angle_x),  np.cos(angle_x)]])
+            B_T_x = np.concatenate((np.concatenate((B_R_x, np.zeros((3, 1))), axis=1), \
+                                    np.array([[0, 0, 0, 1]])), axis=0)
 
             B_T_zyx = (((self.S_T.dot(B_T_zyx_trans)).dot(B_T_z)).dot(B_T_y)).dot(B_T_x)
 
@@ -277,17 +327,29 @@ class AppForm(QMainWindow):
 
         elif self.scenario == 4:
             # Post-multiply, transformation w.r.t. Body Frame
-            B_p_zyx = np.array([[0.50], [0.25], [0.75]])
-            B_T_zyx_trans = np.concatenate((np.concatenate((np.eye(3), B_p_zyx), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
+            B_p_zyx = np.array([[0.50], \
+                                [0.25], \
+                                [0.75]])
+            B_T_zyx_trans = np.concatenate((np.concatenate((np.eye(3), B_p_zyx), axis=1), \
+                                            np.array([[0, 0, 0, 1]])), axis=0)
             angle_z = np.deg2rad(45)
             angle_y = np.deg2rad(30)
             angle_x = np.deg2rad(15)
-            B_R_z = np.array([[np.cos(angle_z), -np.sin(angle_z), 0], [np.sin(angle_z), np.cos(angle_z), 0], [0, 0, 1]])
-            B_T_z = np.concatenate((np.concatenate((B_R_z, np.zeros((3, 1))), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
-            B_R_y = np.array([[np.cos(angle_y), 0, np.sin(angle_y)], [0, 1, 0],[-np.sin(angle_y), 0, np.cos(angle_y)]])
-            B_T_y = np.concatenate((np.concatenate((B_R_y, np.zeros((3, 1))), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
-            B_R_x = np.array([[1, 0, 0], [0, np.cos(angle_x), -np.sin(angle_x)], [0, np.sin(angle_x), np.cos(angle_x)]])
-            B_T_x = np.concatenate((np.concatenate((B_R_x, np.zeros((3, 1))), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
+            B_R_z = np.array([[np.cos(angle_z), -np.sin(angle_z), 0], \
+                              [np.sin(angle_z),  np.cos(angle_z), 0], \
+                              [0,                0,               1]])
+            B_T_z = np.concatenate((np.concatenate((B_R_z, np.zeros((3, 1))), axis=1), \
+                                    np.array([[0, 0, 0, 1]])), axis=0)
+            B_R_y = np.array([[np.cos(angle_y),  0, np.sin(angle_y)], \
+                              [0,                1,               0], \
+                              [-np.sin(angle_y), 0, np.cos(angle_y)]])
+            B_T_y = np.concatenate((np.concatenate((B_R_y, np.zeros((3, 1))), axis=1), \
+                                    np.array([[0, 0, 0, 1]])), axis=0)
+            B_R_x = np.array([[1,               0,                0], \
+                              [0, np.cos(angle_x), -np.sin(angle_x)], \
+                              [0, np.sin(angle_x),  np.cos(angle_x)]])
+            B_T_x = np.concatenate((np.concatenate((B_R_x, np.zeros((3, 1))), axis=1), \
+                                    np.array([[0, 0, 0, 1]])), axis=0)
             B_T_zyx = (((self.S_T.dot(B_T_zyx_trans)).dot(B_T_z)).dot(B_T_y)).dot(B_T_x)
 
             B_p_zyx = B_T_zyx[0:3,3]
@@ -298,14 +360,20 @@ class AppForm(QMainWindow):
             self.quiver_By_zyx = B_T_zyx.dot(np.concatenate((self.quiver_Sy, np.array([[1]])), axis=0))
             self.quiver_Bz_zyx = B_T_zyx.dot(np.concatenate((self.quiver_Sz, np.array([[1]])), axis=0))
 
-            B_extra_p = np.array([[self.val_trans_x], [self.val_trans_y], [self.val_trans_z]])
-            B_extra_T_trans = np.concatenate((np.concatenate((np.eye(3), B_extra_p), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
+            B_extra_p = np.array([[self.val_trans_x], \
+                                  [self.val_trans_y], \
+                                  [self.val_trans_z]])
+            B_extra_T_trans = np.concatenate((np.concatenate((np.eye(3), B_extra_p), axis=1), \
+                                              np.array([[0, 0, 0, 1]])), axis=0)
             B_extra_R_z = axangles.axangle2mat(np.array([0, 0, 1]), np.deg2rad(self.val_rot_z))
-            B_extra_T_z = np.concatenate((np.concatenate((B_extra_R_z, np.zeros((3, 1))), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
+            B_extra_T_z = np.concatenate((np.concatenate((B_extra_R_z, np.zeros((3, 1))), axis=1), \
+                                          np.array([[0, 0, 0, 1]])), axis=0)
             B_extra_R_y = axangles.axangle2mat(np.array([0, 1, 0]), np.deg2rad(self.val_rot_y))
-            B_extra_T_y = np.concatenate((np.concatenate((B_extra_R_y, np.zeros((3, 1))), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
+            B_extra_T_y = np.concatenate((np.concatenate((B_extra_R_y, np.zeros((3, 1))), axis=1), \
+                                          np.array([[0, 0, 0, 1]])), axis=0)
             B_extra_R_x = axangles.axangle2mat(np.array([1, 0, 0]), np.deg2rad(self.val_rot_x))
-            B_extra_T_x = np.concatenate((np.concatenate((B_extra_R_x, np.zeros((3, 1))), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
+            B_extra_T_x = np.concatenate((np.concatenate((B_extra_R_x, np.zeros((3, 1))), axis=1), \
+                                          np.array([[0, 0, 0, 1]])), axis=0)
 
             B_T = (((B_T_zyx.dot(B_extra_T_trans)).dot(B_extra_T_z)).dot(B_extra_T_y)).dot(B_extra_T_x)  # Post-multiply
 
@@ -333,17 +401,29 @@ class AppForm(QMainWindow):
 
         elif self.scenario == 5:
             # Pre-multiply, transformation w.r.t. Space Frame
-            B_p_zyx = np.array([[0.50], [0.25], [0.75]])
-            B_T_zyx_trans = np.concatenate((np.concatenate((np.eye(3), B_p_zyx), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
+            B_p_zyx = np.array([[0.50], \
+                                [0.25], \
+                                [0.75]])
+            B_T_zyx_trans = np.concatenate((np.concatenate((np.eye(3), B_p_zyx), axis=1), \
+                                            np.array([[0, 0, 0, 1]])), axis=0)
             angle_z = np.deg2rad(45)
             angle_y = np.deg2rad(30)
             angle_x = np.deg2rad(15)
-            B_R_z = np.array([[np.cos(angle_z), -np.sin(angle_z), 0], [np.sin(angle_z), np.cos(angle_z), 0], [0, 0, 1]])
-            B_T_z = np.concatenate((np.concatenate((B_R_z, np.zeros((3, 1))), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
-            B_R_y = np.array([[np.cos(angle_y), 0, np.sin(angle_y)], [0, 1, 0],[-np.sin(angle_y), 0, np.cos(angle_y)]])
-            B_T_y = np.concatenate((np.concatenate((B_R_y, np.zeros((3, 1))), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
-            B_R_x = np.array([[1, 0, 0], [0, np.cos(angle_x), -np.sin(angle_x)], [0, np.sin(angle_x), np.cos(angle_x)]])
-            B_T_x = np.concatenate((np.concatenate((B_R_x, np.zeros((3, 1))), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
+            B_R_z = np.array([[np.cos(angle_z), -np.sin(angle_z), 0], \
+                              [np.sin(angle_z),  np.cos(angle_z), 0], \
+                              [0,                0,               1]])
+            B_T_z = np.concatenate((np.concatenate((B_R_z, np.zeros((3, 1))), axis=1), \
+                                    np.array([[0, 0, 0, 1]])), axis=0)
+            B_R_y = np.array([[np.cos(angle_y),  0, np.sin(angle_y)], \
+                              [0,                1,               0], \
+                              [-np.sin(angle_y), 0, np.cos(angle_y)]])
+            B_T_y = np.concatenate((np.concatenate((B_R_y, np.zeros((3, 1))), axis=1), \
+                                    np.array([[0, 0, 0, 1]])), axis=0)
+            B_R_x = np.array([[1,               0,                0], \
+                              [0, np.cos(angle_x), -np.sin(angle_x)], \
+                              [0, np.sin(angle_x),  np.cos(angle_x)]])
+            B_T_x = np.concatenate((np.concatenate((B_R_x, np.zeros((3, 1))), axis=1), \
+                                    np.array([[0, 0, 0, 1]])), axis=0)
             B_T_zyx = (((self.S_T.dot(B_T_zyx_trans)).dot(B_T_z)).dot(B_T_y)).dot(B_T_x)
 
             B_p_zyx = B_T_zyx[0:3,3]
@@ -354,14 +434,20 @@ class AppForm(QMainWindow):
             self.quiver_By_zyx = B_T_zyx.dot(np.concatenate((self.quiver_Sy, np.array([[1]])), axis=0))
             self.quiver_Bz_zyx = B_T_zyx.dot(np.concatenate((self.quiver_Sz, np.array([[1]])), axis=0))
 
-            B_extra_p = np.array([[self.val_trans_x], [self.val_trans_y], [self.val_trans_z]])
-            B_extra_T_trans = np.concatenate((np.concatenate((np.eye(3), B_extra_p), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
+            B_extra_p = np.array([[self.val_trans_x], \
+                                  [self.val_trans_y], \
+                                  [self.val_trans_z]])
+            B_extra_T_trans = np.concatenate((np.concatenate((np.eye(3), B_extra_p), axis=1), \
+                                              np.array([[0, 0, 0, 1]])), axis=0)
             B_extra_R_z = axangles.axangle2mat(np.array([0, 0, 1]), np.deg2rad(self.val_rot_z))
-            B_extra_T_z = np.concatenate((np.concatenate((B_extra_R_z, np.zeros((3, 1))), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
+            B_extra_T_z = np.concatenate((np.concatenate((B_extra_R_z, np.zeros((3, 1))), axis=1), \
+                                          np.array([[0, 0, 0, 1]])), axis=0)
             B_extra_R_y = axangles.axangle2mat(np.array([0, 1, 0]), np.deg2rad(self.val_rot_y))
-            B_extra_T_y = np.concatenate((np.concatenate((B_extra_R_y, np.zeros((3, 1))), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
+            B_extra_T_y = np.concatenate((np.concatenate((B_extra_R_y, np.zeros((3, 1))), axis=1), \
+                                          np.array([[0, 0, 0, 1]])), axis=0)
             B_extra_R_x = axangles.axangle2mat(np.array([1, 0, 0]), np.deg2rad(self.val_rot_x))
-            B_extra_T_x = np.concatenate((np.concatenate((B_extra_R_x, np.zeros((3, 1))), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
+            B_extra_T_x = np.concatenate((np.concatenate((B_extra_R_x, np.zeros((3, 1))), axis=1), \
+                                          np.array([[0, 0, 0, 1]])), axis=0)
 
             B_T = B_extra_T_x.dot(B_extra_T_y.dot(B_extra_T_z.dot(B_extra_T_trans.dot(B_T_zyx))))  # Pre-multiply
 
@@ -423,6 +509,13 @@ class AppForm(QMainWindow):
             self.rb_p0.setChecked(False)
             self.rb_p1.setChecked(False)
             self.rb_p2.setChecked(False)
+
+            self.cbx_px.setEnabled(False)
+            self.sld_px.setEnabled(False)
+            self.cbx_py.setEnabled(False)
+            self.sld_py.setEnabled(False)
+            self.cbx_pz.setEnabled(False)
+            self.sld_pz.setEnabled(False)
         elif self.rb_r1.isChecked() and self.scenario != 1:
             self.scenario = 1
             self.rb_r0.setChecked(False)
@@ -430,6 +523,13 @@ class AppForm(QMainWindow):
             self.rb_p0.setChecked(False)
             self.rb_p1.setChecked(False)
             self.rb_p2.setChecked(False)
+
+            self.cbx_px.setEnabled(False)
+            self.sld_px.setEnabled(False)
+            self.cbx_py.setEnabled(False)
+            self.sld_py.setEnabled(False)
+            self.cbx_pz.setEnabled(False)
+            self.sld_pz.setEnabled(False)
         elif self.rb_r2.isChecked() and self.scenario != 2:
             self.scenario = 2
             self.rb_r0.setChecked(False)
@@ -437,6 +537,13 @@ class AppForm(QMainWindow):
             self.rb_p0.setChecked(False)
             self.rb_p1.setChecked(False)
             self.rb_p2.setChecked(False)
+
+            self.cbx_px.setEnabled(False)
+            self.sld_px.setEnabled(False)
+            self.cbx_py.setEnabled(False)
+            self.sld_py.setEnabled(False)
+            self.cbx_pz.setEnabled(False)
+            self.sld_pz.setEnabled(False)
         elif self.rb_p0.isChecked() and self.scenario != 3:
             self.scenario = 3
             self.rb_r0.setChecked(False)
@@ -444,6 +551,13 @@ class AppForm(QMainWindow):
             self.rb_r2.setChecked(False)
             self.rb_p1.setChecked(False)
             self.rb_p2.setChecked(False)
+
+            self.cbx_px.setEnabled(True)
+            self.sld_px.setEnabled(True)
+            self.cbx_py.setEnabled(True)
+            self.sld_py.setEnabled(True)
+            self.cbx_pz.setEnabled(True)
+            self.sld_pz.setEnabled(True)
         elif self.rb_p1.isChecked() and self.scenario != 4:
             self.scenario = 4
             self.rb_r0.setChecked(False)
@@ -451,6 +565,13 @@ class AppForm(QMainWindow):
             self.rb_r2.setChecked(False)
             self.rb_p0.setChecked(False)
             self.rb_p2.setChecked(False)
+
+            self.cbx_px.setEnabled(True)
+            self.sld_px.setEnabled(True)
+            self.cbx_py.setEnabled(True)
+            self.sld_py.setEnabled(True)
+            self.cbx_pz.setEnabled(True)
+            self.sld_pz.setEnabled(True)
         elif self.rb_p2.isChecked() and self.scenario != 5:
             self.scenario = 5
             self.rb_r0.setChecked(False)
@@ -458,6 +579,13 @@ class AppForm(QMainWindow):
             self.rb_r2.setChecked(False)
             self.rb_p0.setChecked(False)
             self.rb_p1.setChecked(False)
+
+            self.cbx_px.setEnabled(True)
+            self.sld_px.setEnabled(True)
+            self.cbx_py.setEnabled(True)
+            self.sld_py.setEnabled(True)
+            self.cbx_pz.setEnabled(True)
+            self.sld_pz.setEnabled(True)
 
         self.on_draw()
 
