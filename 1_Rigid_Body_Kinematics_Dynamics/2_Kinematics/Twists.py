@@ -148,9 +148,7 @@ class AppForm(QMainWindow):
 
             Twist_B = np.array([[np.deg2rad(self.val_omega_x)], [np.deg2rad(self.val_omega_y)], [np.deg2rad(self.val_omega_z)], [self.val_vel_x], [self.val_vel_y], [self.val_vel_z]])
 
-            if self.timer_value < 1e-3:
-                e_VMatrix_theta = np.eye(4)
-            elif np.linalg.norm(Twist_B[0:3]) < 1e-6:
+            if np.linalg.norm(Twist_B[0:3]) < 1e-6:
                 V = np.eye(3)
                 e_VMatrix_theta = np.concatenate((np.concatenate((np.eye(3), V.dot(Twist_B[3:6]) * self.timer_value), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
             else:
@@ -198,9 +196,7 @@ class AppForm(QMainWindow):
 
             Twist_B = np.array([[np.deg2rad(self.val_omega_x)], [np.deg2rad(self.val_omega_y)], [np.deg2rad(self.val_omega_z)], [self.val_vel_x], [self.val_vel_y], [self.val_vel_z]])
 
-            if self.timer_value < 1e-3:
-                e_VMatrix_theta = np.eye(4)
-            elif np.linalg.norm(Twist_B[0:3]) < 1e-6:
+            if np.linalg.norm(Twist_B[0:3]) < 1e-6:
                 V = np.eye(3)
                 e_VMatrix_theta = np.concatenate((np.concatenate((np.eye(3), V.dot(Twist_B[3:6]) * self.timer_value), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
             else:
