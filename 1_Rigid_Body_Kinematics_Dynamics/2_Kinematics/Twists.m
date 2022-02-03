@@ -213,7 +213,10 @@ function updateFigure()
                  val_vel_y;
                  val_vel_z];
         
-      if norm(Twist_B(1:3)) < 1e-6
+      if time < 1e-3
+        e_VMatrix_theta = [eye(3)     zeros(3,1);
+                           zeros(1,3) 1];  
+      elseif norm(Twist_B(1:3)) < 1e-6
         V = eye(3);
         e_VMatrix_theta = [eye(3)     V*Twist_B(4:6) * time;
                            zeros(1,3) 1];
@@ -285,7 +288,10 @@ function updateFigure()
                  val_vel_y;
                  val_vel_z];
         
-      if norm(Twist_B(1:3)) < 1e-6
+      if time < 1e-3
+        e_VMatrix_theta = [eye(3)     zeros(3,1);
+                           zeros(1,3) 1];  
+      elseif norm(Twist_B(1:3)) < 1e-6
         V = eye(3);
         e_VMatrix_theta = [eye(3)     V*Twist_B(4:6) * time;
                            zeros(1,3) 1];
