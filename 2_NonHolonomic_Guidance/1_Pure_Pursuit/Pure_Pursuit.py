@@ -101,6 +101,22 @@ class DoubleSlider(QSlider):
         return self._max_value
 
 
+def setupBody(axles_distance, half_length, half_width, half_height):
+    body_vertices = list()
+    body_vertices.append([[-half_length+axles_distance/2, -half_width, -half_height], [-half_length+axles_distance/2, -half_width, half_height]])
+    body_vertices.append([[-half_length+axles_distance/2, -half_width, -half_height], [half_length+axles_distance/2, -half_width, -half_height]])
+    body_vertices.append([[-half_length+axles_distance/2, -half_width, -half_height], [half_length+axles_distance/2, -half_width, -half_height]])
+    body_vertices.append([[-half_length+axles_distance/2, -half_width, half_height], [-half_length+axles_distance/2, half_width, half_height]])
+    body_vertices.append([[-half_length+axles_distance/2, -half_width, half_height], [half_length+axles_distance/2, -half_width, half_height]])
+    body_vertices.append([[-half_length+axles_distance/2, half_width, -half_height], [-half_length+axles_distance/2, half_width, half_height]])
+    body_vertices.append([[-half_length+axles_distance/2, half_width, -half_height], [half_length+axles_distance/2, half_width, -half_height]])
+    body_vertices.append([[-half_length+axles_distance/2, half_width, half_height], [half_length+axles_distance/2, half_width, half_height]])
+    body_vertices.append([[half_length+axles_distance/2, -half_width, -half_height], [half_length+axles_distance/2, -half_width, half_height]])
+    body_vertices.append([[half_length+axles_distance/2, -half_width, -half_height], [half_length+axles_distance/2, half_width, -half_height]])
+    body_vertices.append([[half_length+axles_distance/2, -half_width, half_height], [half_length+axles_distance/2, half_width, half_height]])
+    body_vertices.append([[half_length+axles_distance/2, half_width, -half_height], [half_length+axles_distance/2, half_width, half_height]])
+    return body_vertices
+
 class AppForm(QMainWindow):
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
@@ -113,6 +129,8 @@ class AppForm(QMainWindow):
 
         self.val_vel = 0
         self.val_lookahead = 5
+
+        self.u_delta = 0
 
         self.trajectory = list() 
         self.trajectory.append([5, 5])
@@ -164,24 +182,11 @@ class AppForm(QMainWindow):
         #    if np.sum(np.abs(s-e)) == r[1]-r[0]:
         #        print(s, e)
         #        self.axes.plot3D(*zip(s, e), color="k")
-        half_length = 0.25
-        half_width = 0.15
-        half_height = 0.05
-        self.body_vertices = list()
-        self.body_vertices.append([[-half_length, -half_width, -half_height], [-half_length, -half_width, half_height]])
-        self.body_vertices.append([[-half_length, -half_width, -half_height], [half_length, -half_width, -half_height]])
-        self.body_vertices.append([[-half_length, -half_width, -half_height], [half_length, -half_width, -half_height]])
-        self.body_vertices.append([[-half_length, -half_width, half_height], [-half_length, half_width, half_height]])
-        self.body_vertices.append([[-half_length, -half_width, half_height], [half_length, -half_width, half_height]])
-        self.body_vertices.append([[-half_length, half_width, -half_height], [-half_length, half_width, half_height]])
-        self.body_vertices.append([[-half_length, half_width, -half_height], [half_length, half_width, -half_height]])
-        self.body_vertices.append([[-half_length, half_width, half_height], [half_length, half_width, half_height]])
-        self.body_vertices.append([[half_length, -half_width, -half_height], [half_length, -half_width, half_height]])
-        self.body_vertices.append([[half_length, -half_width, -half_height], [half_length, half_width, -half_height]])
-        self.body_vertices.append([[half_length, -half_width, half_height], [half_length, half_width, half_height]])
-        self.body_vertices.append([[half_length, half_width, -half_height], [half_length, half_width, half_height]])
-
-        self.half_width = half_width
+        self.axles_distance = 0
+        self.half_length = 0.5
+        self.half_width = 0.5
+        self.half_height = 0.10
+        self.body_vertices = setupBody(self.axles_distance, self.half_length, self.half_width, self.half_height)
 
         # point-line distance to choose closest segment to initialize active_segment
         min_dist = 10000.0
@@ -245,7 +250,6 @@ class AppForm(QMainWindow):
         if not np.isnan(self.lookahead_intersect_point[0]) and not np.isnan(self.lookahead_intersect_point[1]):
             # valid lookahead intersection point, steer towards that
             intersect_point = self.lookahead_intersect_point
-            omega_command = (2 * self.val_vel * np.sin(np.arctan2(intersect_point[1]-self.ksi_groundtruth[1], intersect_point[0]-self.ksi_groundtruth[0])-self.ksi_groundtruth[2])) / self.val_lookahead
 
             # check if outside trajectory line segment endpoints to advance self.traj_active_segment
             position = Point2D(self.ksi_groundtruth[0], self.ksi_groundtruth[1])
@@ -267,34 +271,57 @@ class AppForm(QMainWindow):
                 intersect_point = [self.trajectory[self.traj_active_segment+1][0], self.trajectory[self.traj_active_segment+1][1]]
             else:
                 intersect_point = [self.trajectory[0][0], self.trajectory[0][1]]
-            omega_command = (2 * self.val_vel * np.sin(np.arctan2(intersect_point[1]-self.ksi_groundtruth[1], intersect_point[0]-self.ksi_groundtruth[0])-self.ksi_groundtruth[2])) / self.val_lookahead
 
-        return omega_command   
+        if self.scenario == 0:
+            omega_command = (2 * self.val_vel * np.sin(np.arctan2(intersect_point[1]-self.ksi_groundtruth[1], intersect_point[0]-self.ksi_groundtruth[0])-self.ksi_groundtruth[2])) / self.val_lookahead
+            return omega_command
+
+        elif self.scenario == 1:
+            delta_command = np.arctan2(2 * self.axles_distance * np.sin(np.arctan2(intersect_point[1]-self.ksi_groundtruth[1], intersect_point[0]-self.ksi_groundtruth[0])-self.ksi_groundtruth[2]), self.val_lookahead)
+            return delta_command
+
+        return 0
 
     def on_timer(self): 
         self.timer_value = self.timer_value + self.timer_period
 
-        if np.abs(self.val_vel) < 1e-3:
-            val_omega = 0
-        else:
-            val_omega = self.steer()
+        if self.scenario == 0:
+            if np.abs(self.val_vel) < 1e-3:
+                val_omega = 0
+            else:
+                val_omega = self.steer()
 
-        # update low-level Joint-Space commands (wheels)
-        u_right = self.val_vel + val_omega * self.half_width
-        u_left = self.val_vel - val_omega * self.half_width
+            # update low-level Joint-Space commands (wheels)
+            u_right = self.val_vel + val_omega * self.half_width
+            u_left = self.val_vel - val_omega * self.half_width
    
-        # calculate Body Frame kinematics based on joint-space velocities
-        vel = (u_right + u_left)/2;
-        omega = (u_right - u_left)/(2 * self.half_width);
+            # calculate Body Frame kinematics based on joint-space velocities
+            vel = (u_right + u_left)/2;
+            omega = (u_right - u_left)/(2 * self.half_width)
         
-        x_dot = vel * np.cos( self.ksi_groundtruth[2] );
-        y_dot = vel * np.sin( self.ksi_groundtruth[2] );
-        theta_dot = omega;
+            x_dot = vel * np.cos( self.ksi_groundtruth[2] )
+            y_dot = vel * np.sin( self.ksi_groundtruth[2] )
+            theta_dot = omega;
+
+        elif self.scenario ==1:
+            if np.abs(self.val_vel) < 1e-3:
+                val_delta = 0
+            else:
+                val_delta = self.steer()
+
+            # update low-level Joint-Space commands (individual wheels)
+            # SKIP STEP (in reality requires lef/right front axle wheels, go directly to body kinematics with bicycle model) 
+            self.u_delta = val_delta
+            vel = self.val_vel
+
+            x_dot = vel * np.cos( self.ksi_groundtruth[2] )
+            y_dot = vel * np.sin( self.ksi_groundtruth[2] )
+            theta_dot = (vel / self.axles_distance) * np.tan(self.u_delta)
 
         # update Space Frame kinematics 
-        self.ksi_groundtruth[0] = self.ksi_groundtruth[0] + x_dot * self.timer_period;
-        self.ksi_groundtruth[1] = self.ksi_groundtruth[1] + y_dot * self.timer_period;
-        self.ksi_groundtruth[2] = self.ksi_groundtruth[2] + theta_dot * self.timer_period;
+        self.ksi_groundtruth[0] = self.ksi_groundtruth[0] + x_dot * self.timer_period
+        self.ksi_groundtruth[1] = self.ksi_groundtruth[1] + y_dot * self.timer_period
+        self.ksi_groundtruth[2] = self.ksi_groundtruth[2] + theta_dot * self.timer_period
 
         #print(self.timer_value)
 
@@ -324,20 +351,60 @@ class AppForm(QMainWindow):
             self.axes.set_xlim(-10.0, 10.0)
             self.axes.set_ylim(-10.0, 10.0)
 
-            for vertex_pair in self.body_vertices:
-                v0 = vertex_pair[0] 
-                v1 = vertex_pair[1]
-                v0_transformed = T_SB.dot(np.array([[v0[0]], [v0[1]], [v0[2]], [1]]))
-                v1_transformed = T_SB.dot(np.array([[v1[0]], [v1[1]], [v1[2]], [1]]))
-                #self.axes.plot3D(*zip(v0_transformed[0:2], v1_transformed[0:2]), color="b")
-                self.axes.plot([v0_transformed[0], v1_transformed[0]], [v0_transformed[1], v1_transformed[1]], color="b")
+        elif self.scenario == 1:
 
-            for i in range(len(self.trajectory)-1):
-                self.axes.plot([self.trajectory[i][0], self.trajectory[i+1][0]], [self.trajectory[i][1], self.trajectory[i+1][1]], color="k")
-            self.axes.plot([self.trajectory[len(self.trajectory)-1][0], self.trajectory[0][0]], [self.trajectory[len(self.trajectory)-1][1], self.trajectory[0][1]], color="k")
+            T_SB = np.concatenate((np.concatenate((axangles.axangle2mat(np.array([0, 0, 1]), self.ksi_groundtruth[2]), np.array([[self.ksi_groundtruth[0]], [self.ksi_groundtruth[1]], [0]])), axis=1),
+                                   np.array([[0, 0, 0, 1]])), axis=0)
 
-            if not np.isnan(self.lookahead_intersect_point[0]) and not np.isnan(self.lookahead_intersect_point[1]):
-                self.axes.plot([self.ksi_groundtruth[0], self.lookahead_intersect_point[0]], [self.ksi_groundtruth[1], self.lookahead_intersect_point[1]], color="r")
+            self.quiver_Bp = T_SB.dot(np.concatenate((self.S_p, np.array([[1]])), axis=0))
+            self.quiver_Bx = T_SB.dot(np.concatenate((self.quiver_Sx, np.array([[1]])), axis=0))
+            self.quiver_By = T_SB.dot(np.concatenate((self.quiver_Sy, np.array([[1]])), axis=0))
+            self.quiver_Bz = T_SB.dot(np.concatenate((self.quiver_Sz, np.array([[1]])), axis=0))
+
+            p_Bsteer = np.array([[self.axles_distance], \
+                                 [0], \
+                                 [0]])
+            T_Bsteer_trans = np.concatenate((np.concatenate((np.eye(3), p_Bsteer), axis=1), \
+                                             np.array([[0, 0, 0, 1]])), axis=0)
+            R_Bsteer_z = axangles.axangle2mat(np.array([0, 0, 1]), self.u_delta)
+            T_Bsteer_z = np.concatenate((np.concatenate((R_Bsteer_z, np.zeros((3, 1))), axis=1), \
+                                         np.array([[0, 0, 0, 1]])), axis=0)
+
+            T_Bsteer = (T_SB.dot(T_Bsteer_trans)).dot(T_Bsteer_z)  # Post-multiply
+
+            self.quiver_STEERp = T_Bsteer.dot(np.concatenate((self.S_p, np.array([[1]])), axis=0))
+            self.quiver_STEERx = T_Bsteer.dot(np.concatenate((self.quiver_Sx, np.array([[1]])), axis=0))
+            self.quiver_STEERy = T_Bsteer.dot(np.concatenate((self.quiver_Sy, np.array([[1]])), axis=0))
+            self.quiver_STEERz = T_Bsteer.dot(np.concatenate((self.quiver_Sz, np.array([[1]])), axis=0))
+
+            # these are just to scale arrows of different coordinate systems to better distinguish between them
+            scale_small = 0.25
+            scale_medium = 0.5
+            scale_full = 1.0
+            self.axes.quiver(self.S_p[0], self.S_p[1], scale_small*self.quiver_Sx[0], scale_small*self.quiver_Sx[1], color=['r'])
+            self.axes.quiver(self.S_p[0], self.S_p[1], scale_small*self.quiver_Sy[0], scale_small*self.quiver_Sy[1], color=['g'])
+            self.axes.quiver(self.quiver_STEERp[0], self.quiver_STEERp[1], scale_medium*(self.quiver_STEERx[0]-self.quiver_STEERp[0]), scale_medium*(self.quiver_STEERx[1]-self.quiver_STEERp[1]), color=['r'])
+            self.axes.quiver(self.quiver_STEERp[0], self.quiver_STEERp[1], scale_medium*(self.quiver_STEERy[0]-self.quiver_STEERp[0]), scale_medium*(self.quiver_STEERy[1]-self.quiver_STEERp[1]), color=['g'])
+            self.axes.quiver(self.quiver_Bp[0], self.quiver_Bp[1], scale_full*(self.quiver_Bx[0]-self.quiver_Bp[0]), scale_full*(self.quiver_Bx[1]-self.quiver_Bp[1]), color=['r'])
+            self.axes.quiver(self.quiver_Bp[0], self.quiver_Bp[1], scale_full*(self.quiver_By[0]-self.quiver_Bp[0]), scale_full*(self.quiver_By[1]-self.quiver_Bp[1]), color=['g'])
+            self.axes.set_xlim(-10.0, 10.0)
+            self.axes.set_ylim(-10.0, 10.0)
+
+        # draw body, trajectory, and lookahead vector
+        for vertex_pair in self.body_vertices:
+            v0 = vertex_pair[0] 
+            v1 = vertex_pair[1]
+            v0_transformed = T_SB.dot(np.array([[v0[0]], [v0[1]], [v0[2]], [1]]))
+            v1_transformed = T_SB.dot(np.array([[v1[0]], [v1[1]], [v1[2]], [1]]))
+            #self.axes.plot3D(*zip(v0_transformed[0:2], v1_transformed[0:2]), color="b")
+            self.axes.plot([v0_transformed[0], v1_transformed[0]], [v0_transformed[1], v1_transformed[1]], color="b")
+
+        for i in range(len(self.trajectory)-1):
+            self.axes.plot([self.trajectory[i][0], self.trajectory[i+1][0]], [self.trajectory[i][1], self.trajectory[i+1][1]], color="k")
+        self.axes.plot([self.trajectory[len(self.trajectory)-1][0], self.trajectory[0][0]], [self.trajectory[len(self.trajectory)-1][1], self.trajectory[0][1]], color="k")
+
+        if not np.isnan(self.lookahead_intersect_point[0]) and not np.isnan(self.lookahead_intersect_point[1]):
+            self.axes.plot([self.ksi_groundtruth[0], self.lookahead_intersect_point[0]], [self.ksi_groundtruth[1], self.lookahead_intersect_point[1]], color="r")
 
         self.canvas.draw()
 
@@ -362,8 +429,24 @@ class AppForm(QMainWindow):
         self.val_vel = self.sld_vel.value()
         self.val_lookahead = self.sld_lookahead.value()
 
-        #if self.rb_t0.isChecked() and self.scenario != 0:
-        #    self.scenario = 0
+        if self.rb_g0.isChecked() and self.scenario != 0:
+            self.scenario = 0
+            self.rb_g1.setChecked(False)
+
+            self.axles_distance = 0
+            self.half_length = 0.5
+            self.half_width = 0.5
+            self.half_height = 0.10
+            self.body_vertices = setupBody(self.axles_distance, self.half_length, self.half_width, self.half_height)
+        elif self.rb_g1.isChecked() and self.scenario != 1:
+            self.scenario = 1
+            self.rb_g0.setChecked(False)
+
+            self.axles_distance = 1.5
+            self.half_length = 1.5
+            self.half_width = 0.5
+            self.half_height = 0.10
+            self.body_vertices = setupBody(self.axles_distance, self.half_length, self.half_width, self.half_height)
 
         #self.on_draw()
 
@@ -425,6 +508,10 @@ class AppForm(QMainWindow):
         self.rb_g0.setChecked(True)
         self.connect(self.rb_g0, SIGNAL('stateChanged(int)'), self.on_update_values)
 
+        self.rb_g1 = QCheckBox('Guidance #2')
+        self.rb_g1.setChecked(False)
+        self.connect(self.rb_g1, SIGNAL('stateChanged(int)'), self.on_update_values)
+
         hbox_vel = QHBoxLayout()
         for w in [ QLabel('vel'), QLabel('0'), self.sld_vel, QLabel('2.5')]:
             hbox_vel.addWidget(w)
@@ -436,7 +523,7 @@ class AppForm(QMainWindow):
             hbox_lookahead.setAlignment(w, Qt.AlignVCenter)
 
         hbox_rb = QHBoxLayout()
-        for w in [ self.rb_g0, QLabel('trajectory x,y'), QLabel('#1'), self.traj_xy_1, QLabel('#2'), self.traj_xy_2, QLabel('#3'), self.traj_xy_3, QLabel('#4'), self.traj_xy_4, QLabel('#5'), self.traj_xy_5]:
+        for w in [ self.rb_g0, self.rb_g1, QLabel('trajectory x,y'), QLabel('#1'), self.traj_xy_1, QLabel('#2'), self.traj_xy_2, QLabel('#3'), self.traj_xy_3, QLabel('#4'), self.traj_xy_4, QLabel('#5'), self.traj_xy_5]:
             hbox_rb.addWidget(w)
             hbox_rb.setAlignment(w, Qt.AlignVCenter)
 
