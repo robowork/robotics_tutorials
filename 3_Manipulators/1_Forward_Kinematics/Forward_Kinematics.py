@@ -413,7 +413,7 @@ class AppForm(QMainWindow):
                 e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
                 V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
                 e_S1Matrix_theta1 = np.concatenate((np.concatenate((e_omegaSkew, V.dot(S1[3:6] * np.deg2rad(self.val_theta_1))), axis=1), \
-                                                  np.array([[0, 0, 0, 1]])), axis=0)
+                                                    np.array([[0, 0, 0, 1]])), axis=0)
 
             if abs(np.deg2rad(self.val_theta_2)) < 1e-3:
                 e_S2Matrix_theta2 = np.eye(4)
@@ -429,7 +429,7 @@ class AppForm(QMainWindow):
                 e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
                 V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
                 e_S2Matrix_theta2 = np.concatenate((np.concatenate((e_omegaSkew, V.dot(S2[3:6] * np.deg2rad(self.val_theta_2))), axis=1), \
-                                                  np.array([[0, 0, 0, 1]])), axis=0)
+                                                    np.array([[0, 0, 0, 1]])), axis=0)
 
             if abs(np.deg2rad(self.val_theta_3)) < 1e-3:
                 e_S3Matrix_theta3 = np.eye(4)
@@ -445,7 +445,7 @@ class AppForm(QMainWindow):
                 e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
                 V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
                 e_S3Matrix_theta3 = np.concatenate((np.concatenate((e_omegaSkew, V.dot(S3[3:6] * np.deg2rad(self.val_theta_3))), axis=1), \
-                                                  np.array([[0, 0, 0, 1]])), axis=0)
+                                                    np.array([[0, 0, 0, 1]])), axis=0)
 
             E_T = ((Home_T.dot(e_S1Matrix_theta1)).dot(e_S2Matrix_theta2)).dot(e_S3Matrix_theta3)  # Post-multiply
 
