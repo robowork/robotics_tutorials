@@ -623,7 +623,7 @@ class AppForm(QMainWindow):
             L2_x = [L2_point0_transformed[0][0], L2_point1_transformed[0][0], L2_point2_transformed[0][0]]
             L2_y = [L2_point0_transformed[1][0], L2_point1_transformed[1][0], L2_point2_transformed[1][0]]
             L2_z = [L2_point0_transformed[2][0], L2_point1_transformed[2][0], L2_point2_transformed[2][0]]
-            self.axes.plot(L2_x, L2_y, L2_z, color=(0.25,0.25,0.25,1.0), linewidth=3.5)
+            self.axes.plot(L2_x, L2_y, L2_z, color=(0.5,0.5,0.5,1.0), linewidth=3.5)
 
             L3_point0 = np.array([[0], [0], [0]])
             L3_point1 = np.array([[0], [0], [+L5]])
@@ -634,7 +634,7 @@ class AppForm(QMainWindow):
             L3_x = [L3_point0_transformed[0][0], L3_point1_transformed[0][0], L3_point2_transformed[0][0]]
             L3_y = [L3_point0_transformed[1][0], L3_point1_transformed[1][0], L3_point2_transformed[1][0]]
             L3_z = [L3_point0_transformed[2][0], L3_point1_transformed[2][0], L3_point2_transformed[2][0]]
-            self.axes.plot(L3_x, L3_y, L3_z, color=(0.5,0.5,0.5,1.0), linewidth=3.5)
+            self.axes.plot(L3_x, L3_y, L3_z, color=(0,0,0,1.0), linewidth=3.5)
 
             L4_point0 = np.array([[0], [0], [0]])
             L4_point1 = np.array([[0], [0], [+L7]])
@@ -643,7 +643,7 @@ class AppForm(QMainWindow):
             L4_x = [L4_point0_transformed[0][0], L4_point1_transformed[0][0]]
             L4_y = [L4_point0_transformed[1][0], L4_point1_transformed[1][0]]
             L4_z = [L4_point0_transformed[2][0], L4_point1_transformed[2][0]]
-            self.axes.plot(L4_x, L4_y, L4_z, color=(0.25,0.25,0.25,1.0), linewidth=3.5)
+            self.axes.plot(L4_x, L4_y, L4_z, color=(0.5,0.5,0.5,1.0), linewidth=3.5)
 
             L5_point0 = np.array([[0], [0], [0]])
             L5_point1 = np.array([[0], [0], [+L8]])
@@ -663,7 +663,7 @@ class AppForm(QMainWindow):
             L6_x = [L6_point0_transformed[0][0], L6_point1_transformed[0][0]]
             L6_y = [L6_point0_transformed[1][0], L6_point1_transformed[1][0]]
             L6_z = [L6_point0_transformed[2][0], L6_point1_transformed[2][0]]
-            self.axes.plot(L6_x, L6_y, L6_z, color=(0.25,0.25,0.25,1.0), linewidth=3.5)
+            self.axes.plot(L6_x, L6_y, L6_z, color=(0.5,0.5,0.5,1.0), linewidth=3.5)
 
             # these are just to scale arrows of different coordinate systems to better distinguish between them
             scale_small = 0.25
