@@ -357,6 +357,34 @@ class AppForm(QMainWindow):
             self.quiver_J3y = j3_T.dot(np.concatenate((self.quiver_Sy, np.array([[1]])), axis=0))
             self.quiver_J3z = j3_T.dot(np.concatenate((self.quiver_Sz, np.array([[1]])), axis=0))
 
+            # links
+            L1_point0 = np.array([[0], [0], [0]])
+            L1_point1 = np.array([[+L1], [0], [0]])
+            L1_point0_transformed = j1_T.dot(np.concatenate((L1_point0, np.array([[1]])), axis=0))
+            L1_point1_transformed = j1_T.dot(np.concatenate((L1_point1, np.array([[1]])), axis=0))
+            L1_x = [L1_point0_transformed[0][0], L1_point1_transformed[0][0]]
+            L1_y = [L1_point0_transformed[1][0], L1_point1_transformed[1][0]]
+            L1_z = [L1_point0_transformed[2][0], L1_point1_transformed[2][0]]
+            self.axes.plot(L1_x, L1_y, L1_z, color=(0,0,0,1.0), linewidth=3.5)
+
+            L2_point0 = np.array([[0], [0], [0]])
+            L2_point1 = np.array([[-L2 -(np.deg2rad(self.val_theta_2)/np.pi)], [0], [0]])
+            L2_point0_transformed = j2_T.dot(np.concatenate((L2_point0, np.array([[1]])), axis=0))
+            L2_point1_transformed = j2_T.dot(np.concatenate((L2_point1, np.array([[1]])), axis=0))
+            L2_x = [L2_point0_transformed[0][0], L2_point1_transformed[0][0]]
+            L2_y = [L2_point0_transformed[1][0], L2_point1_transformed[1][0]]
+            L2_z = [L2_point0_transformed[2][0], L2_point1_transformed[2][0]]
+            self.axes.plot(L2_x, L2_y, L2_z, color=(0.5,0.5,0.5,1.0), linewidth=3.5)
+
+            L3_point0 = np.array([[0], [0], [0]])
+            L3_point1 = np.array([[+L3], [0], [0]])
+            L3_point0_transformed = j3_T.dot(np.concatenate((L3_point0, np.array([[1]])), axis=0))
+            L3_point1_transformed = j3_T.dot(np.concatenate((L3_point1, np.array([[1]])), axis=0))
+            L3_x = [L3_point0_transformed[0][0], L3_point1_transformed[0][0]]
+            L3_y = [L3_point0_transformed[1][0], L3_point1_transformed[1][0]]
+            L3_z = [L3_point0_transformed[2][0], L3_point1_transformed[2][0]]
+            self.axes.plot(L3_x, L3_y, L3_z, color=(0,0,0,1.0), linewidth=3.5)
+
             # these are just to scale arrows of different coordinate systems to better distinguish between them
             scale_small = 0.25
             scale_medium = 0.5
@@ -386,7 +414,7 @@ class AppForm(QMainWindow):
             L1 = 0.25
             L2 = 0.10
             L3 = 0.75
-            L4 = 0.10
+            L4 = 0.25
             L5 = 0.50
 
             Home_T = np.concatenate((np.concatenate((np.eye(3), np.array([[(-L4)], [(L2)], [(L1+L3+L5)]])), axis=1), \
@@ -598,6 +626,38 @@ class AppForm(QMainWindow):
             self.quiver_J3x = j3_T.dot(np.concatenate((self.quiver_Sx, np.array([[1]])), axis=0))
             self.quiver_J3y = j3_T.dot(np.concatenate((self.quiver_Sy, np.array([[1]])), axis=0))
             self.quiver_J3z = j3_T.dot(np.concatenate((self.quiver_Sz, np.array([[1]])), axis=0))
+
+            # links
+            L1_point0 = np.array([[0], [0], [0]])
+            L1_point1 = np.array([[0], [0], [+L1]])
+            L1_point2 = np.array([[0], [+L2], [+L1]])
+            L1_point0_transformed = j1_T.dot(np.concatenate((L1_point0, np.array([[1]])), axis=0))
+            L1_point1_transformed = j1_T.dot(np.concatenate((L1_point1, np.array([[1]])), axis=0))
+            L1_point2_transformed = j1_T.dot(np.concatenate((L1_point2, np.array([[1]])), axis=0))
+            L1_x = [L1_point0_transformed[0][0], L1_point1_transformed[0][0], L1_point2_transformed[0][0]]
+            L1_y = [L1_point0_transformed[1][0], L1_point1_transformed[1][0], L1_point2_transformed[1][0]]
+            L1_z = [L1_point0_transformed[2][0], L1_point1_transformed[2][0], L1_point2_transformed[2][0]]
+            self.axes.plot(L1_x, L1_y, L1_z, color=(0,0,0,1.0), linewidth=3.5)
+
+            L2_point0 = np.array([[0], [0], [0]])
+            L2_point1 = np.array([[0], [0], [+L3]])
+            L2_point2 = np.array([[-L4], [0], [+L3]])
+            L2_point0_transformed = j2_T.dot(np.concatenate((L2_point0, np.array([[1]])), axis=0))
+            L2_point1_transformed = j2_T.dot(np.concatenate((L2_point1, np.array([[1]])), axis=0))
+            L2_point2_transformed = j2_T.dot(np.concatenate((L2_point2, np.array([[1]])), axis=0))
+            L2_x = [L2_point0_transformed[0][0], L2_point1_transformed[0][0], L2_point2_transformed[0][0]]
+            L2_y = [L2_point0_transformed[1][0], L2_point1_transformed[1][0], L2_point2_transformed[1][0]]
+            L2_z = [L2_point0_transformed[2][0], L2_point1_transformed[2][0], L2_point2_transformed[2][0]]
+            self.axes.plot(L2_x, L2_y, L2_z, color=(0.5,0.5,0.5,1.0), linewidth=3.5)
+
+            L3_point0 = np.array([[0], [0], [0]])
+            L3_point1 = np.array([[0], [0], [+L5]])
+            L3_point0_transformed = j3_T.dot(np.concatenate((L3_point0, np.array([[1]])), axis=0))
+            L3_point1_transformed = j3_T.dot(np.concatenate((L3_point1, np.array([[1]])), axis=0))
+            L3_x = [L3_point0_transformed[0][0], L3_point1_transformed[0][0]]
+            L3_y = [L3_point0_transformed[1][0], L3_point1_transformed[1][0]]
+            L3_z = [L3_point0_transformed[2][0], L3_point1_transformed[2][0]]
+            self.axes.plot(L3_x, L3_y, L3_z, color=(0,0,0,1.0), linewidth=3.5)
 
             # these are just to scale arrows of different coordinate systems to better distinguish between them
             scale_small = 0.25
