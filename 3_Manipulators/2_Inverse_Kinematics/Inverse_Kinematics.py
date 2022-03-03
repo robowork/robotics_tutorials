@@ -354,20 +354,33 @@ class AppForm(QMainWindow):
             #    print("Non Singular")
             #else:
             #    print("Singular")
-            A_manip = np.linalg.pinv( J_E.dot(np.transpose(J_E)) )
-            
-            W, V = np.linalg.eig(A_manip)
-            for e in range(0,len(W)):
-                eVec = V[0:6,e]
+
+            J_E_angular = J_E[0:3,:] 
+            J_E_linear = J_E[3:6,:]
+
+            A_manip_angular = J_E_angular.dot(np.transpose(J_E_angular))
+            A_rank_angular = np.linalg.matrix_rank(A_manip_angular)
+            A_manip_linear = J_E_linear.dot(np.transpose(J_E_linear))
+            A_rank_linear = np.linalg.matrix_rank(A_manip_linear)
+            print("A_rank_linear = " + str(A_rank_linear) + " , A_rank_angular = " + str(A_rank_angular))
+
+            W_linear, V_linear = np.linalg.eig(A_manip_linear)
+            idx_linear = W_linear.argsort()[::-1]   
+            W = W_linear[idx_linear]
+            V = V_linear[:,idx_linear]
+            #for e in range(0,len(W_linear)):
+            for e in range(0,A_rank_linear):
+                eVec = V[:,e]
                 eVal = W[e]
                 axis_halflen = np.sqrt(eVal)
    
-                self.quiver_Ee = np.array([[eVec[3]], \
-                                           [eVec[4]], \
-                                           [eVec[5]]])
+                self.quiver_Ee = np.array([[eVec[0]], \
+                                           [eVec[1]], \
+                                           [eVec[2]]])
                 self.quiver_Ee = E_T.dot(np.concatenate((self.quiver_Ee, np.array([[1]])), axis=0))
 
                 self.axes.quiver(self.quiver_Ep[0], self.quiver_Ep[1], self.quiver_Ep[2], axis_halflen*(self.quiver_Ee[0]-self.quiver_Ep[0]), axis_halflen*(self.quiver_Ee[1]-self.quiver_Ep[1]), axis_halflen*(self.quiver_Ee[2]-self.quiver_Ep[2]), color=['m'], arrow_length_ratio=0.15)
+                self.axes.quiver(self.quiver_Ep[0], self.quiver_Ep[1], self.quiver_Ep[2], -axis_halflen*(self.quiver_Ee[0]-self.quiver_Ep[0]), -axis_halflen*(self.quiver_Ee[1]-self.quiver_Ep[1]), -axis_halflen*(self.quiver_Ee[2]-self.quiver_Ep[2]), color=['m'], arrow_length_ratio=0.15)
 
         if self.scenario == 1:
             # Use Jacobian
@@ -710,20 +723,33 @@ class AppForm(QMainWindow):
             #    print("Non Singular")
             #else:
             #    print("Singular")
-            A_manip = np.linalg.pinv( J_E.dot(np.transpose(J_E)) )
-            
-            W, V = np.linalg.eig(A_manip)
-            for e in range(0,len(W)):
-                eVec = V[0:6,e]
+
+            J_E_angular = J_E[0:3,:] 
+            J_E_linear = J_E[3:6,:]
+
+            A_manip_angular = J_E_angular.dot(np.transpose(J_E_angular))
+            A_rank_angular = np.linalg.matrix_rank(A_manip_angular)
+            A_manip_linear = J_E_linear.dot(np.transpose(J_E_linear))
+            A_rank_linear = np.linalg.matrix_rank(A_manip_linear)
+            print("A_rank_linear = " + str(A_rank_linear) + " , A_rank_angular = " + str(A_rank_angular))
+
+            W_linear, V_linear = np.linalg.eig(A_manip_linear)
+            idx_linear = W_linear.argsort()[::-1]   
+            W = W_linear[idx_linear]
+            V = V_linear[:,idx_linear]
+            #for e in range(0,len(W_linear)):
+            for e in range(0,A_rank_linear):
+                eVec = V[:,e]
                 eVal = W[e]
                 axis_halflen = np.sqrt(eVal)
    
-                self.quiver_Ee = np.array([[eVec[3]], \
-                                           [eVec[4]], \
-                                           [eVec[5]]])
+                self.quiver_Ee = np.array([[eVec[0]], \
+                                           [eVec[1]], \
+                                           [eVec[2]]])
                 self.quiver_Ee = E_T.dot(np.concatenate((self.quiver_Ee, np.array([[1]])), axis=0))
 
                 self.axes.quiver(self.quiver_Ep[0], self.quiver_Ep[1], self.quiver_Ep[2], axis_halflen*(self.quiver_Ee[0]-self.quiver_Ep[0]), axis_halflen*(self.quiver_Ee[1]-self.quiver_Ep[1]), axis_halflen*(self.quiver_Ee[2]-self.quiver_Ep[2]), color=['m'], arrow_length_ratio=0.15)
+                self.axes.quiver(self.quiver_Ep[0], self.quiver_Ep[1], self.quiver_Ep[2], -axis_halflen*(self.quiver_Ee[0]-self.quiver_Ep[0]), -axis_halflen*(self.quiver_Ee[1]-self.quiver_Ep[1]), -axis_halflen*(self.quiver_Ee[2]-self.quiver_Ep[2]), color=['m'], arrow_length_ratio=0.15)
 
         if self.scenario == 3:
             # Use Jacobian

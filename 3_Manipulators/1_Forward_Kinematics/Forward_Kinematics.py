@@ -14,6 +14,55 @@ from matplotlib.figure import Figure
 from mpl_toolkits import mplot3d
 
 
+class RigidBodyDynamics:  
+
+    @staticmethod
+    def SkewSymmetric(p):
+        p_skew = np.array([[ 0      , -p[2][0],  p[1][0]], \
+                           [ p[2][0],        0, -p[0][0]], \
+                           [-p[1][0],  p[0][0],        0]])
+        return p_skew
+
+    @staticmethod
+    def Inverse(T):
+        R_inv = np.transpose(T[0:3,0:3])
+        p = np.array([[T[0][3]], \
+                      [T[1][3]], \
+                      [T[2][3]]])
+        T_inv = np.concatenate((np.concatenate((R_inv, -R_inv.dot(p)), axis=1), \
+                                np.array([[0, 0, 0, 1]])), axis=0)
+        return T_inv
+
+    @staticmethod
+    def AdjointMap(T):
+        R = T[0:3,0:3]
+        p = np.array([[T[0][3]], \
+                      [T[1][3]], \
+                      [T[2][3]]])
+        p_skew = RigidBodyDynamics.SkewSymmetric(p)
+        Ad_T = np.concatenate((np.concatenate((R, np.zeros((3,3))), axis=1), \
+                               np.concatenate((p_skew.dot(R), R), axis=1)), axis=0)
+        return Ad_T
+
+    @staticmethod
+    def ExpMap(Screw, thetaScrew_deg):
+        thetaScrew = np.deg2rad(thetaScrew_deg)
+        if abs(thetaScrew) < 1e-3:
+            e_ScrewMatrix_thetaScrew = np.eye(4)
+        elif np.linalg.norm(Screw[0:3]) < 1e-6:
+            V = np.eye(3);
+            e_ScrewMatrix_thetaScrew = np.concatenate((np.concatenate((np.eye(3), V.dot(Screw[3:6]) * thetaScrew), axis=1), \
+                                                       np.array([[0, 0, 0, 1]])), axis=0)
+        else:
+            omegaSkew = RigidBodyDynamics.SkewSymmetric(Screw) * thetaScrew
+            theta = np.linalg.norm(Screw[0:3] * thetaScrew)
+            e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
+            V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
+            e_ScrewMatrix_thetaScrew = np.concatenate((np.concatenate((e_omegaSkew, V.dot(Screw[3:6] * thetaScrew)), axis=1), \
+                                                       np.array([[0, 0, 0, 1]])), axis=0)
+        return e_ScrewMatrix_thetaScrew
+
+
 class DoubleSlider(QSlider):
 
     def __init__(self, *args, **kwargs):
@@ -157,53 +206,9 @@ class AppForm(QMainWindow):
             S3 = np.concatenate((np.array([[0], [0], [1]]), \
                                  np.cross(-np.array([[0], [0], [1]]) , np.array([[-(L3)], [0], [0]]), axis=0)), axis=0)
 
-            if abs(np.deg2rad(self.val_theta_1)) < 1e-3:
-                e_S1Matrix_theta1 = np.eye(4)
-            elif np.linalg.norm(S1[0:3]) < 1e-6:
-                V = np.eye(3);
-                e_S1Matrix_theta1 = np.concatenate((np.concatenate((np.eye(3), V.dot(S1[3:6]) * np.deg2rad(self.val_theta_1)), axis=1), \
-                                                  np.array([[0, 0, 0, 1]])), axis=0)
-            else:
-                omegaSkew = np.array([[ 0       , -S1[2][0],  S1[1][0]], \
-                                      [ S1[2][0],         0, -S1[0][0]], \
-                                      [-S1[1][0],  S1[0][0],         0]]) * np.deg2rad(self.val_theta_1)
-                theta = np.linalg.norm(S1[0:3] * np.deg2rad(self.val_theta_1))
-                e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
-                V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
-                e_S1Matrix_theta1 = np.concatenate((np.concatenate((e_omegaSkew, V.dot(S1[3:6] * np.deg2rad(self.val_theta_1))), axis=1), \
-                                                  np.array([[0, 0, 0, 1]])), axis=0)
-
-            if abs(np.deg2rad(self.val_theta_2)/np.pi) < 1e-3:
-                e_S2Matrix_theta2 = np.eye(4)
-            elif np.linalg.norm(S2[0:3]) < 1e-6:
-                V = np.eye(3);
-                e_S2Matrix_theta2 = np.concatenate((np.concatenate((np.eye(3), V.dot(S2[3:6]) * np.deg2rad(self.val_theta_2)/np.pi), axis=1), \
-                                                  np.array([[0, 0, 0, 1]])), axis=0)
-            else:
-                omegaSkew = np.array([[ 0       , -S2[2][0],  S2[1][0]], \
-                                      [ S2[2][0],         0, -S2[0][0]], \
-                                      [-S2[1][0],  S2[0][0],         0]]) * np.deg2rad(self.val_theta_2)/np.pi
-                theta = np.linalg.norm(S2[0:3] * np.deg2rad(self.val_theta_2)/np.pi)
-                e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
-                V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
-                e_S2Matrix_theta2 = np.concatenate((np.concatenate((e_omegaSkew, V.dot(S2[3:6] * np.deg2rad(self.val_theta_2)/np.pi)), axis=1), \
-                                                  np.array([[0, 0, 0, 1]])), axis=0)
-
-            if abs(np.deg2rad(self.val_theta_3)) < 1e-3:
-                e_S3Matrix_theta3 = np.eye(4)
-            elif np.linalg.norm(S3[0:3]) < 1e-6:
-                V = np.eye(3);
-                e_S3Matrix_theta3 = np.concatenate((np.concatenate((np.eye(3), V.dot(S3[3:6]) * np.deg2rad(self.val_theta_3)), axis=1), \
-                                                  np.array([[0, 0, 0, 1]])), axis=0)
-            else:
-                omegaSkew = np.array([[ 0       , -S3[2][0],  S3[1][0]], \
-                                      [ S3[2][0],         0, -S3[0][0]], \
-                                      [-S3[1][0],  S3[0][0],         0]]) * np.deg2rad(self.val_theta_3)
-                theta = np.linalg.norm(S3[0:3] * np.deg2rad(self.val_theta_3))
-                e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
-                V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
-                e_S3Matrix_theta3 = np.concatenate((np.concatenate((e_omegaSkew, V.dot(S3[3:6] * np.deg2rad(self.val_theta_3))), axis=1), \
-                                                  np.array([[0, 0, 0, 1]])), axis=0)
+            e_S1Matrix_theta1 = RigidBodyDynamics.ExpMap(S1, self.val_theta_1)
+            e_S2Matrix_theta2 = RigidBodyDynamics.ExpMap(S2, self.val_theta_2/np.pi)
+            e_S3Matrix_theta3 = RigidBodyDynamics.ExpMap(S3, self.val_theta_3)
 
             E_T = ((Home_T.dot(e_S1Matrix_theta1)).dot(e_S2Matrix_theta2)).dot(e_S3Matrix_theta3)  # Post-multiply
 
@@ -215,21 +220,7 @@ class AppForm(QMainWindow):
             j1_S1 = np.concatenate((np.array([[0], [0], [1]]), \
                                     np.cross(-np.array([[0], [0], [1]]) , np.array([[-(0)], [0], [0]]), axis=0)), axis=0)
            
-            if abs(np.deg2rad(self.val_theta_1)) < 1e-3:
-                e_j1S1Matrix_theta1 = np.eye(4)
-            elif np.linalg.norm(j1_S1[0:3]) < 1e-6:
-                V = np.eye(3);
-                e_j1S1Matrix_theta1 = np.concatenate((np.concatenate((np.eye(3), V.dot(j1_S1[3:6]) * np.deg2rad(self.val_theta_1)), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
-            else:
-                omegaSkew = np.array([[ 0          , -j1_S1[2][0],  j1_S1[1][0]], \
-                                      [ j1_S1[2][0],            0, -j1_S1[0][0]], \
-                                      [-j1_S1[1][0],  j1_S1[0][0],         0]]) * np.deg2rad(self.val_theta_1)
-                theta = np.linalg.norm(j1_S1[0:3] * np.deg2rad(self.val_theta_1))
-                e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
-                V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
-                e_j1S1Matrix_theta1 = np.concatenate((np.concatenate((e_omegaSkew, V.dot(j1_S1[3:6] * np.deg2rad(self.val_theta_1))), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
+            e_j1S1Matrix_theta1 = RigidBodyDynamics.ExpMap(j1_S1, self.val_theta_1)
 
             j1_T = Home_j1.dot(e_j1S1Matrix_theta1)  # Post-multiply
 
@@ -242,37 +233,8 @@ class AppForm(QMainWindow):
             j2_S2 = np.concatenate((np.array([[0], [0], [0]]), \
                                     np.array([[1], [0], [0]])), axis=0)
            
-            if abs(np.deg2rad(self.val_theta_1)) < 1e-3:
-                e_j2S1Matrix_theta1 = np.eye(4)
-            elif np.linalg.norm(j2_S1[0:3]) < 1e-6:
-                V = np.eye(3);
-                e_j2S1Matrix_theta1 = np.concatenate((np.concatenate((np.eye(3), V.dot(j2_S1[3:6]) * np.deg2rad(self.val_theta_1)), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
-            else:
-                omegaSkew = np.array([[ 0          , -j2_S1[2][0],  j2_S1[1][0]], \
-                                      [ j2_S1[2][0],            0, -j2_S1[0][0]], \
-                                      [-j2_S1[1][0],  j2_S1[0][0],         0]]) * np.deg2rad(self.val_theta_1)
-                theta = np.linalg.norm(j2_S1[0:3] * np.deg2rad(self.val_theta_1))
-                e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
-                V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
-                e_j2S1Matrix_theta1 = np.concatenate((np.concatenate((e_omegaSkew, V.dot(j2_S1[3:6] * np.deg2rad(self.val_theta_1))), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
-
-            if abs(np.deg2rad(self.val_theta_2)/np.pi) < 1e-3:
-                e_j2S2Matrix_theta2 = np.eye(4)
-            elif np.linalg.norm(j2_S2[0:3]) < 1e-6:
-                V = np.eye(3);
-                e_j2S2Matrix_theta2 = np.concatenate((np.concatenate((np.eye(3), V.dot(j2_S2[3:6]) * np.deg2rad(self.val_theta_2)/np.pi), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
-            else:
-                omegaSkew = np.array([[ 0          , -j2_S2[2][0],  j2_S2[1][0]], \
-                                      [ j2_S2[2][0],            0, -j2_S2[0][0]], \
-                                      [-j2_S2[1][0],  j2_S2[0][0],         0]]) * np.deg2rad(self.val_theta_2)/np.pi
-                theta = np.linalg.norm(j2_S2[0:3] * np.deg2rad(self.val_theta_2)/np.pi)
-                e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
-                V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
-                e_j2S2Matrix_theta2 = np.concatenate((np.concatenate((e_omegaSkew, V.dot(j2_S2[3:6] * np.deg2rad(self.val_theta_2)/np.pi)), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
+            e_j2S1Matrix_theta1 = RigidBodyDynamics.ExpMap(j2_S1, self.val_theta_1)
+            e_j2S2Matrix_theta2 = RigidBodyDynamics.ExpMap(j2_S2, self.val_theta_2/np.pi)
   
             j2_T = (Home_j2.dot(e_j2S1Matrix_theta1)).dot(e_j2S2Matrix_theta2)  # Post-multiply
             
@@ -287,53 +249,9 @@ class AppForm(QMainWindow):
             j3_S3 = np.concatenate((np.array([[0], [0], [1]]), \
                                     np.cross(-np.array([[0], [0], [1]]) , np.array([[-(0)], [0], [0]]), axis=0)), axis=0)     
 
-            if abs(np.deg2rad(self.val_theta_1)) < 1e-3:
-                e_j3S1Matrix_theta1 = np.eye(4)
-            elif np.linalg.norm(j2_S1[0:3]) < 1e-6:
-                V = np.eye(3);
-                e_j3S1Matrix_theta1 = np.concatenate((np.concatenate((np.eye(3), V.dot(j2_S1[3:6]) * np.deg2rad(self.val_theta_1)), axis=1), \
-                                                  np.array([[0, 0, 0, 1]])), axis=0)
-            else:
-                omegaSkew = np.array([[ 0          , -j2_S1[2][0],  j2_S1[1][0]], \
-                                      [ j2_S1[2][0],            0, -j2_S1[0][0]], \
-                                      [-j2_S1[1][0],  j2_S1[0][0],         0]]) * np.deg2rad(self.val_theta_1)
-                theta = np.linalg.norm(j2_S1[0:3] * np.deg2rad(self.val_theta_1))
-                e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
-                V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
-                e_j3S1Matrix_theta1 = np.concatenate((np.concatenate((e_omegaSkew, V.dot(j2_S1[3:6] * np.deg2rad(self.val_theta_1))), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
-
-            if abs(np.deg2rad(self.val_theta_2)/np.pi) < 1e-3:
-                e_j3S2Matrix_theta2 = np.eye(4)
-            elif np.linalg.norm(j2_S2[0:3]) < 1e-6:
-                V = np.eye(3);
-                e_j3S2Matrix_theta2 = np.concatenate((np.concatenate((np.eye(3), V.dot(j2_S2[3:6]) * np.deg2rad(self.val_theta_2)/np.pi), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
-            else:
-                omegaSkew = np.array([[ 0          , -j2_S2[2][0],  j2_S2[1][0]], \
-                                      [ j2_S2[2][0],            0, -j2_S2[0][0]], \
-                                      [-j2_S2[1][0],  j2_S2[0][0],         0]]) * np.deg2rad(self.val_theta_2)/np.pi
-                theta = np.linalg.norm(j2_S2[0:3] * np.deg2rad(self.val_theta_2)/np.pi)
-                e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
-                V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
-                e_j3S2Matrix_theta2 = np.concatenate((np.concatenate((e_omegaSkew, V.dot(j2_S2[3:6] * np.deg2rad(self.val_theta_2)/np.pi)), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
-  
-            if abs(np.deg2rad(self.val_theta_3)) < 1e-3:
-                e_j3S3Matrix_theta3 = np.eye(4)
-            elif np.linalg.norm(j3_S3[0:3]) < 1e-6:
-                V = np.eye(3);
-                e_j3S3Matrix_theta3 = np.concatenate((np.concatenate((np.eye(3), V.dot(j3_S3[3:6]) * np.deg2rad(self.val_theta_3)), axis=1), \
-                                                  np.array([[0, 0, 0, 1]])), axis=0)
-            else:
-                omegaSkew = np.array([[ 0          , -j3_S3[2][0],  j3_S3[1][0]], \
-                                      [ j3_S3[2][0],            0, -j3_S3[0][0]], \
-                                      [-j3_S3[1][0],  j3_S3[0][0],         0]]) * np.deg2rad(self.val_theta_3)
-                theta = np.linalg.norm(j3_S3[0:3] * np.deg2rad(self.val_theta_3))
-                e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
-                V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
-                e_j3S3Matrix_theta3 = np.concatenate((np.concatenate((e_omegaSkew, V.dot(j3_S3[3:6] * np.deg2rad(self.val_theta_3))), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
+            e_j3S1Matrix_theta1 = RigidBodyDynamics.ExpMap(j3_S1, self.val_theta_1)
+            e_j3S2Matrix_theta2 = RigidBodyDynamics.ExpMap(j3_S2, self.val_theta_2/np.pi)
+            e_j3S3Matrix_theta3 = RigidBodyDynamics.ExpMap(j3_S3, self.val_theta_3)
 
             j3_T = ((Home_j3.dot(e_j3S1Matrix_theta1)).dot(e_j3S2Matrix_theta2)).dot(e_j3S3Matrix_theta3)  # Post-multiply
 
@@ -392,7 +310,6 @@ class AppForm(QMainWindow):
             self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], scale_small*self.quiver_Sx[0], scale_small*self.quiver_Sx[1], scale_small*self.quiver_Sx[2], color=['r'], arrow_length_ratio=0.15)
             self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], scale_small*self.quiver_Sy[0], scale_small*self.quiver_Sy[1], scale_small*self.quiver_Sy[2], color=['g'], arrow_length_ratio=0.15)
             self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], scale_small*self.quiver_Sz[0], scale_small*self.quiver_Sz[1], scale_small*self.quiver_Sz[2], color=['b'], arrow_length_ratio=0.15)
-
             self.axes.quiver(self.quiver_J1p[0], self.quiver_J1p[1], self.quiver_J1p[2], scale_medium*(self.quiver_J1x[0]-self.quiver_J1p[0]), scale_medium*(self.quiver_J1x[1]-self.quiver_J1p[1]), scale_medium*(self.quiver_J1x[2]-self.quiver_J1p[2]), color=['r'], arrow_length_ratio=0.15)
             self.axes.quiver(self.quiver_J1p[0], self.quiver_J1p[1], self.quiver_J1p[2], scale_medium*(self.quiver_J1y[0]-self.quiver_J1p[0]), scale_medium*(self.quiver_J1y[1]-self.quiver_J1p[1]), scale_medium*(self.quiver_J1y[2]-self.quiver_J1p[2]), color=['g'], arrow_length_ratio=0.15)
             self.axes.quiver(self.quiver_J1p[0], self.quiver_J1p[1], self.quiver_J1p[2], scale_medium*(self.quiver_J1z[0]-self.quiver_J1p[0]), scale_medium*(self.quiver_J1z[1]-self.quiver_J1p[1]), scale_medium*(self.quiver_J1z[2]-self.quiver_J1p[2]), color=['b'], arrow_length_ratio=0.15)
@@ -408,6 +325,44 @@ class AppForm(QMainWindow):
             self.axes.set_xlim(-2.0, 2.0)
             self.axes.set_ylim(-2.0, 2.0)
             self.axes.set_zlim(-2.0, 2.0)
+
+            # Jacobian
+            J_3_E = S3
+            J_2_E = RigidBodyDynamics.AdjointMap(RigidBodyDynamics.Inverse( e_S3Matrix_theta3 )).dot(S2)
+            J_1_E = RigidBodyDynamics.AdjointMap(RigidBodyDynamics.Inverse( e_S2Matrix_theta2.dot(e_S3Matrix_theta3) )).dot(S1)
+            J_E = np.concatenate((J_1_E, J_2_E, J_3_E), axis=1)
+
+            #if np.linalg.cond( J_E.dot(np.transpose(J_E)) ) < 1/sys.float_info.epsilon:
+            #    print("Non Singular")
+            #else:
+            #    print("Singular")
+
+            J_E_angular = J_E[0:3,:] 
+            J_E_linear = J_E[3:6,:]
+
+            A_manip_angular = J_E_angular.dot(np.transpose(J_E_angular))
+            A_rank_angular = np.linalg.matrix_rank(A_manip_angular)
+            A_manip_linear = J_E_linear.dot(np.transpose(J_E_linear))
+            A_rank_linear = np.linalg.matrix_rank(A_manip_linear)
+            print("A_rank_linear = " + str(A_rank_linear) + " , A_rank_angular = " + str(A_rank_angular))
+
+            W_linear, V_linear = np.linalg.eig(A_manip_linear)
+            idx_linear = W_linear.argsort()[::-1]   
+            W = W_linear[idx_linear]
+            V = V_linear[:,idx_linear]
+            #for e in range(0,len(W_linear)):
+            for e in range(0,A_rank_linear):
+                eVec = V[:,e]
+                eVal = W[e]
+                axis_halflen = np.sqrt(eVal)
+   
+                self.quiver_Ee = np.array([[eVec[0]], \
+                                           [eVec[1]], \
+                                           [eVec[2]]])
+                self.quiver_Ee = E_T.dot(np.concatenate((self.quiver_Ee, np.array([[1]])), axis=0))
+
+                self.axes.quiver(self.quiver_Ep[0], self.quiver_Ep[1], self.quiver_Ep[2], axis_halflen*(self.quiver_Ee[0]-self.quiver_Ep[0]), axis_halflen*(self.quiver_Ee[1]-self.quiver_Ep[1]), axis_halflen*(self.quiver_Ee[2]-self.quiver_Ep[2]), color=['m'], arrow_length_ratio=0.15)
+                self.axes.quiver(self.quiver_Ep[0], self.quiver_Ep[1], self.quiver_Ep[2], -axis_halflen*(self.quiver_Ee[0]-self.quiver_Ep[0]), -axis_halflen*(self.quiver_Ee[1]-self.quiver_Ep[1]), -axis_halflen*(self.quiver_Ee[2]-self.quiver_Ep[2]), color=['m'], arrow_length_ratio=0.15)
 
         if self.scenario == 1:
             # 3-Joint SE(3)
@@ -427,54 +382,10 @@ class AppForm(QMainWindow):
             S3 = np.concatenate((np.array([[1], [0], [0]]), \
                                  np.cross(-np.array([[1], [0], [0]]) , np.array([[0], [-(0)], [-(L5)]]), axis=0)), axis=0)
 
-            if abs(np.deg2rad(self.val_theta_1)) < 1e-3:
-                e_S1Matrix_theta1 = np.eye(4)
-            elif np.linalg.norm(S1[0:3]) < 1e-6:
-                V = np.eye(3);
-                e_S1Matrix_theta1 = np.concatenate((np.concatenate((np.eye(3), V.dot(S1[3:6]) * np.deg2rad(self.val_theta_1)), axis=1), \
-                                                    np.array([[0, 0, 0, 1]])), axis=0)
-            else:
-                omegaSkew = np.array([[ 0       , -S1[2][0],  S1[1][0]], \
-                                      [ S1[2][0],         0, -S1[0][0]], \
-                                      [-S1[1][0],  S1[0][0],         0]]) * np.deg2rad(self.val_theta_1)
-                theta = np.linalg.norm(S1[0:3] * np.deg2rad(self.val_theta_1))
-                e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
-                V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
-                e_S1Matrix_theta1 = np.concatenate((np.concatenate((e_omegaSkew, V.dot(S1[3:6] * np.deg2rad(self.val_theta_1))), axis=1), \
-                                                    np.array([[0, 0, 0, 1]])), axis=0)
-
-            if abs(np.deg2rad(self.val_theta_2)) < 1e-3:
-                e_S2Matrix_theta2 = np.eye(4)
-            elif np.linalg.norm(S2[0:3]) < 1e-6:
-                V = np.eye(3);
-                e_S2Matrix_theta2 = np.concatenate((np.concatenate((np.eye(3), V.dot(S2[3:6]) * np.deg2rad(self.val_theta_2)), axis=1), \
-                                                    np.array([[0, 0, 0, 1]])), axis=0)
-            else:
-                omegaSkew = np.array([[ 0       , -S2[2][0],  S2[1][0]], \
-                                      [ S2[2][0],         0, -S2[0][0]], \
-                                      [-S2[1][0],  S2[0][0],         0]]) * np.deg2rad(self.val_theta_2)
-                theta = np.linalg.norm(S2[0:3] * np.deg2rad(self.val_theta_2))
-                e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
-                V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
-                e_S2Matrix_theta2 = np.concatenate((np.concatenate((e_omegaSkew, V.dot(S2[3:6] * np.deg2rad(self.val_theta_2))), axis=1), \
-                                                    np.array([[0, 0, 0, 1]])), axis=0)
-
-            if abs(np.deg2rad(self.val_theta_3)) < 1e-3:
-                e_S3Matrix_theta3 = np.eye(4)
-            elif np.linalg.norm(S3[0:3]) < 1e-6:
-                V = np.eye(3);
-                e_S3Matrix_theta3 = np.concatenate((np.concatenate((np.eye(3), V.dot(S3[3:6]) * np.deg2rad(self.val_theta_3)), axis=1), \
-                                                    np.array([[0, 0, 0, 1]])), axis=0)
-            else:
-                omegaSkew = np.array([[ 0       , -S3[2][0],  S3[1][0]], \
-                                      [ S3[2][0],         0, -S3[0][0]], \
-                                      [-S3[1][0],  S3[0][0],         0]]) * np.deg2rad(self.val_theta_3)
-                theta = np.linalg.norm(S3[0:3] * np.deg2rad(self.val_theta_3))
-                e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
-                V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
-                e_S3Matrix_theta3 = np.concatenate((np.concatenate((e_omegaSkew, V.dot(S3[3:6] * np.deg2rad(self.val_theta_3))), axis=1), \
-                                                    np.array([[0, 0, 0, 1]])), axis=0)
-
+            e_S1Matrix_theta1 = RigidBodyDynamics.ExpMap(S1, self.val_theta_1)
+            e_S2Matrix_theta2 = RigidBodyDynamics.ExpMap(S2, self.val_theta_2)
+            e_S3Matrix_theta3 = RigidBodyDynamics.ExpMap(S3, self.val_theta_3)
+            
             E_T = ((Home_T.dot(e_S1Matrix_theta1)).dot(e_S2Matrix_theta2)).dot(e_S3Matrix_theta3)  # Post-multiply
 
             # Intermediate frames
@@ -485,21 +396,7 @@ class AppForm(QMainWindow):
             j1_S1 = np.concatenate((np.array([[0], [0], [1]]), \
                                     np.cross(-np.array([[0], [0], [1]]) , np.array([[-(0)], [0], [0]]), axis=0)), axis=0)
            
-            if abs(np.deg2rad(self.val_theta_1)) < 1e-3:
-                e_j1S1Matrix_theta1 = np.eye(4)
-            elif np.linalg.norm(j1_S1[0:3]) < 1e-6:
-                V = np.eye(3);
-                e_j1S1Matrix_theta1 = np.concatenate((np.concatenate((np.eye(3), V.dot(j1_S1[3:6]) * np.deg2rad(self.val_theta_1)), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
-            else:
-                omegaSkew = np.array([[ 0          , -j1_S1[2][0],  j1_S1[1][0]], \
-                                      [ j1_S1[2][0],            0, -j1_S1[0][0]], \
-                                      [-j1_S1[1][0],  j1_S1[0][0],         0]]) * np.deg2rad(self.val_theta_1)
-                theta = np.linalg.norm(j1_S1[0:3] * np.deg2rad(self.val_theta_1))
-                e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
-                V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
-                e_j1S1Matrix_theta1 = np.concatenate((np.concatenate((e_omegaSkew, V.dot(j1_S1[3:6] * np.deg2rad(self.val_theta_1))), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
+            e_j1S1Matrix_theta1 = RigidBodyDynamics.ExpMap(j1_S1, self.val_theta_1)
 
             j1_T = Home_j1.dot(e_j1S1Matrix_theta1)  # Post-multiply
 
@@ -512,38 +409,9 @@ class AppForm(QMainWindow):
             j2_S2 = np.concatenate((np.array([[0], [1], [0]]), \
                                     np.cross(-np.array([[0], [1], [0]]) , np.array([[0], [-(0)], [-(0)]]), axis=0)), axis=0)
            
-            if abs(np.deg2rad(self.val_theta_1)) < 1e-3:
-                e_j2S1Matrix_theta1 = np.eye(4)
-            elif np.linalg.norm(j2_S1[0:3]) < 1e-6:
-                V = np.eye(3);
-                e_j2S1Matrix_theta1 = np.concatenate((np.concatenate((np.eye(3), V.dot(j2_S1[3:6]) * np.deg2rad(self.val_theta_1)), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
-            else:
-                omegaSkew = np.array([[ 0          , -j2_S1[2][0],  j2_S1[1][0]], \
-                                      [ j2_S1[2][0],            0, -j2_S1[0][0]], \
-                                      [-j2_S1[1][0],  j2_S1[0][0],         0]]) * np.deg2rad(self.val_theta_1)
-                theta = np.linalg.norm(j2_S1[0:3] * np.deg2rad(self.val_theta_1))
-                e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
-                V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
-                e_j2S1Matrix_theta1 = np.concatenate((np.concatenate((e_omegaSkew, V.dot(j2_S1[3:6] * np.deg2rad(self.val_theta_1))), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
+            e_j2S1Matrix_theta1 = RigidBodyDynamics.ExpMap(j2_S1, self.val_theta_1)
+            e_j2S2Matrix_theta2 = RigidBodyDynamics.ExpMap(j2_S2, self.val_theta_2)
 
-            if abs(np.deg2rad(self.val_theta_2)) < 1e-3:
-                e_j2S2Matrix_theta2 = np.eye(4)
-            elif np.linalg.norm(j2_S2[0:3]) < 1e-6:
-                V = np.eye(3);
-                e_j2S2Matrix_theta2 = np.concatenate((np.concatenate((np.eye(3), V.dot(j2_S2[3:6]) * np.deg2rad(self.val_theta_2)), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
-            else:
-                omegaSkew = np.array([[ 0          , -j2_S2[2][0],  j2_S2[1][0]], \
-                                      [ j2_S2[2][0],            0, -j2_S2[0][0]], \
-                                      [-j2_S2[1][0],  j2_S2[0][0],         0]]) * np.deg2rad(self.val_theta_2)
-                theta = np.linalg.norm(j2_S2[0:3] * np.deg2rad(self.val_theta_2))
-                e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
-                V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
-                e_j2S2Matrix_theta2 = np.concatenate((np.concatenate((e_omegaSkew, V.dot(j2_S2[3:6] * np.deg2rad(self.val_theta_2))), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
-  
             j2_T = (Home_j2.dot(e_j2S1Matrix_theta1)).dot(e_j2S2Matrix_theta2)  # Post-multiply
             
             # Joint 3
@@ -557,53 +425,9 @@ class AppForm(QMainWindow):
             j3_S3 = np.concatenate((np.array([[1], [0], [0]]), \
                                     np.cross(-np.array([[1], [0], [0]]) , np.array([[0], [-(0)], [-(0)]]), axis=0)), axis=0)     
 
-            if abs(np.deg2rad(self.val_theta_1)) < 1e-3:
-                e_j3S1Matrix_theta1 = np.eye(4)
-            elif np.linalg.norm(j3_S1[0:3]) < 1e-6:
-                V = np.eye(3);
-                e_j3S1Matrix_theta1 = np.concatenate((np.concatenate((np.eye(3), V.dot(j3_S1[3:6]) * np.deg2rad(self.val_theta_1)), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
-            else:
-                omegaSkew = np.array([[ 0          , -j3_S1[2][0],  j3_S1[1][0]], \
-                                      [ j3_S1[2][0],            0, -j3_S1[0][0]], \
-                                      [-j3_S1[1][0],  j3_S1[0][0],         0]]) * np.deg2rad(self.val_theta_1)
-                theta = np.linalg.norm(j3_S1[0:3] * np.deg2rad(self.val_theta_1))
-                e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
-                V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
-                e_j3S1Matrix_theta1 = np.concatenate((np.concatenate((e_omegaSkew, V.dot(j3_S1[3:6] * np.deg2rad(self.val_theta_1))), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
-
-            if abs(np.deg2rad(self.val_theta_2)) < 1e-3:
-                e_j3S2Matrix_theta2 = np.eye(4)
-            elif np.linalg.norm(j3_S2[0:3]) < 1e-6:
-                V = np.eye(3);
-                e_j3S2Matrix_theta2 = np.concatenate((np.concatenate((np.eye(3), V.dot(j3_S2[3:6]) * np.deg2rad(self.val_theta_2)), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
-            else:
-                omegaSkew = np.array([[ 0          , -j3_S2[2][0],  j3_S2[1][0]], \
-                                      [ j3_S2[2][0],            0, -j3_S2[0][0]], \
-                                      [-j3_S2[1][0],  j3_S2[0][0],         0]]) * np.deg2rad(self.val_theta_2)
-                theta = np.linalg.norm(j3_S2[0:3] * np.deg2rad(self.val_theta_2))
-                e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
-                V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
-                e_j3S2Matrix_theta2 = np.concatenate((np.concatenate((e_omegaSkew, V.dot(j3_S2[3:6] * np.deg2rad(self.val_theta_2))), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
-  
-            if abs(np.deg2rad(self.val_theta_3)) < 1e-3:
-                e_j3S3Matrix_theta3 = np.eye(4)
-            elif np.linalg.norm(j3_S3[0:3]) < 1e-6:
-                V = np.eye(3);
-                e_j3S3Matrix_theta3 = np.concatenate((np.concatenate((np.eye(3), V.dot(j3_S3[3:6]) * np.deg2rad(self.val_theta_3)), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
-            else:
-                omegaSkew = np.array([[ 0          , -j3_S3[2][0],  j3_S3[1][0]], \
-                                      [ j3_S3[2][0],            0, -j3_S3[0][0]], \
-                                      [-j3_S3[1][0],  j3_S3[0][0],         0]]) * np.deg2rad(self.val_theta_3)
-                theta = np.linalg.norm(j3_S3[0:3] * np.deg2rad(self.val_theta_3))
-                e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
-                V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
-                e_j3S3Matrix_theta3 = np.concatenate((np.concatenate((e_omegaSkew, V.dot(j3_S3[3:6] * np.deg2rad(self.val_theta_3))), axis=1), \
-                                                      np.array([[0, 0, 0, 1]])), axis=0)
+            e_j3S1Matrix_theta1 = RigidBodyDynamics.ExpMap(j3_S1, self.val_theta_1)
+            e_j3S2Matrix_theta2 = RigidBodyDynamics.ExpMap(j3_S2, self.val_theta_2)
+            e_j3S3Matrix_theta3 = RigidBodyDynamics.ExpMap(j3_S3, self.val_theta_3)
 
             j3_T = ((Home_j3.dot(e_j3S1Matrix_theta1)).dot(e_j3S2Matrix_theta2)).dot(e_j3S3Matrix_theta3)  # Post-multiply
 
@@ -681,6 +505,44 @@ class AppForm(QMainWindow):
             self.axes.set_xlim(-2.0, 2.0)
             self.axes.set_ylim(-2.0, 2.0)
             self.axes.set_zlim(-2.0, 2.0)
+
+            # Jacobian
+            J_3_E = S3
+            J_2_E = RigidBodyDynamics.AdjointMap(RigidBodyDynamics.Inverse( e_S3Matrix_theta3 )).dot(S2)
+            J_1_E = RigidBodyDynamics.AdjointMap(RigidBodyDynamics.Inverse( e_S2Matrix_theta2.dot(e_S3Matrix_theta3) )).dot(S1)
+            J_E = np.concatenate((J_1_E, J_2_E, J_3_E), axis=1)
+
+            #if np.linalg.cond( J_E.dot(np.transpose(J_E)) ) < 1/sys.float_info.epsilon:
+            #    print("Non Singular")
+            #else:
+            #    print("Singular")
+
+            J_E_angular = J_E[0:3,:] 
+            J_E_linear = J_E[3:6,:]
+
+            A_manip_angular = J_E_angular.dot(np.transpose(J_E_angular))
+            A_rank_angular = np.linalg.matrix_rank(A_manip_angular)
+            A_manip_linear = J_E_linear.dot(np.transpose(J_E_linear))
+            A_rank_linear = np.linalg.matrix_rank(A_manip_linear)
+            print("A_rank_linear = " + str(A_rank_linear) + " , A_rank_angular = " + str(A_rank_angular))
+
+            W_linear, V_linear = np.linalg.eig(A_manip_linear)
+            idx_linear = W_linear.argsort()[::-1]   
+            W = W_linear[idx_linear]
+            V = V_linear[:,idx_linear]
+            #for e in range(0,len(W_linear)):
+            for e in range(0,A_rank_linear):
+                eVec = V[:,e]
+                eVal = W[e]
+                axis_halflen = np.sqrt(eVal)
+   
+                self.quiver_Ee = np.array([[eVec[0]], \
+                                           [eVec[1]], \
+                                           [eVec[2]]])
+                self.quiver_Ee = E_T.dot(np.concatenate((self.quiver_Ee, np.array([[1]])), axis=0))
+
+                self.axes.quiver(self.quiver_Ep[0], self.quiver_Ep[1], self.quiver_Ep[2], axis_halflen*(self.quiver_Ee[0]-self.quiver_Ep[0]), axis_halflen*(self.quiver_Ee[1]-self.quiver_Ep[1]), axis_halflen*(self.quiver_Ee[2]-self.quiver_Ep[2]), color=['m'], arrow_length_ratio=0.15)
+                self.axes.quiver(self.quiver_Ep[0], self.quiver_Ep[1], self.quiver_Ep[2], -axis_halflen*(self.quiver_Ee[0]-self.quiver_Ep[0]), -axis_halflen*(self.quiver_Ee[1]-self.quiver_Ep[1]), -axis_halflen*(self.quiver_Ee[2]-self.quiver_Ep[2]), color=['m'], arrow_length_ratio=0.15)
 
         self.canvas.draw()
 
