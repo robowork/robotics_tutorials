@@ -24,6 +24,13 @@ class RigidBodyDynamics:
         return p_skew
 
     @staticmethod
+    def Vee(p_skew):
+        p_vee = np.array([[p_skew[2][1]], \
+                          [p_skew[0][2]], \
+                          [p_skew[1][0]]])
+        return p_vee;
+
+    @staticmethod
     def Inverse(T):
         R_inv = np.transpose(T[0:3,0:3])
         p = np.array([[T[0][3]], \
@@ -61,6 +68,39 @@ class RigidBodyDynamics:
             e_ScrewMatrix_thetaScrew = np.concatenate((np.concatenate((e_omegaSkew, V.dot(Screw[3:6] * thetaScrew)), axis=1), \
                                                        np.array([[0, 0, 0, 1]])), axis=0)
         return e_ScrewMatrix_thetaScrew
+
+    @staticmethod
+    def LogMap(T):
+        R = T[0:3,0:3]
+        p = np.array([[T[0][3]], \
+                      [T[1][3]], \
+                      [T[2][3]]])
+
+        cos_theta = (np.trace(R)-1.0)/2
+        if cos_theta > 0.999999:
+            omega = np.array([[0], \
+                              [0], \
+                              [0]])
+
+            V = np.eye(3);
+        else:
+            sin_theta = np.sqrt(1.0-cos_theta**2)
+            theta = np.arccos(cos_theta)
+            ln_R = (theta / (2*sin_theta)) * (R - np.transpose(R))
+            omega = RigidBodyDynamics.Vee(ln_R)
+
+            omegaSkew = ln_R
+            V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
+
+        t = np.linalg.inv(V).dot(p)
+        
+        Twist = np.array([omega[0], \
+                          omega[1], \
+                          omega[2], \
+                          t[0], \
+                          t[1], \
+                          t[2]])
+        return Twist
 
 
 class DoubleSlider(QSlider):
@@ -116,6 +156,10 @@ class AppForm(QMainWindow):
         self.create_main_frame()
         self.create_status_bar()
 
+        qApp.installEventFilter(self)
+
+        self.fire_event = False
+        self.G_T_active = np.NAN
 
         self.val_theta_1 = 0
         self.val_theta_2 = 0
@@ -162,6 +206,18 @@ class AppForm(QMainWindow):
         self.sld_wy.setEnabled(False)
         self.cbx_wz.setEnabled(False)
         self.sld_wz.setEnabled(False)
+        self.cbx_posx.setEnabled(False)
+        self.sld_posx.setEnabled(False)
+        self.cbx_posy.setEnabled(False)
+        self.sld_posy.setEnabled(False)
+        self.cbx_posz.setEnabled(False)
+        self.sld_posz.setEnabled(False)
+        self.cbx_rotx.setEnabled(False)
+        self.sld_rotx.setEnabled(False)
+        self.cbx_roty.setEnabled(False)
+        self.sld_roty.setEnabled(False)
+        self.cbx_rotz.setEnabled(False)
+        self.sld_rotz.setEnabled(False)
 
         # Space Frame / origin
         self.S_p = np.array([[0], \
@@ -186,6 +242,13 @@ class AppForm(QMainWindow):
 
         #self.on_draw()
 
+    def eventFilter(self, source, event):
+        if event.type() == QEvent.KeyPress:
+            #print('KeyPress: %s [%r]' % (event.key(), source))
+            if event.key() == 32:  # spacebar
+                self.fire_event = True
+        return super(AppForm, self).eventFilter(source, event)
+
     def save_plot(self):
         file_choices = "PNG (*.png)|*.png"
         
@@ -208,7 +271,7 @@ class AppForm(QMainWindow):
         self.axes.clear()        
         self.axes.grid(True)
 
-        if self.scenario == 0 or self.scenario == 1:
+        if self.scenario == 0 or self.scenario == 1 or self.scenario == 2:
             # 3-Joint SE(2)
             L1 = 0.75
             L2 = 0.5
@@ -414,21 +477,21 @@ class AppForm(QMainWindow):
             Joints_vel = J_S_pinv.dot(Twist_S)
 
             # revolute
-            self.val_theta_1 = self.val_theta_1 + np.rad2deg(Joints_vel[0]) * 0.2
+            self.val_theta_1 = self.val_theta_1 + np.rad2deg(Joints_vel[0]) * 0.1
             if self.val_theta_1 > 180.0:
                 self.val_theta_1 = 180.0
             elif self.val_theta_1 < -180.0:
                 self.val_theta_1 = -180.0
 
             # prismatic
-            self.val_theta_2 = self.val_theta_2 + np.rad2deg(Joints_vel[1]) * 0.2
+            self.val_theta_2 = self.val_theta_2 + np.rad2deg(Joints_vel[1]) * 0.1
             if self.val_theta_2 > 180.0:
                 self.val_theta_2 = 180.0
             elif self.val_theta_2 < -180.0:
                 self.val_theta_2 = -180.0
 
             # wrap: revolute
-            self.val_theta_3 = self.val_theta_3 + np.rad2deg(Joints_vel[2]) * 0.2
+            self.val_theta_3 = self.val_theta_3 + np.rad2deg(Joints_vel[2]) * 0.1
             if self.val_theta_3 > 180.0:
                 self.val_theta_3 = 180.0
             elif self.val_theta_3 < -180.0:
@@ -446,7 +509,99 @@ class AppForm(QMainWindow):
             self.sld_theta_3.setValue(self.val_theta_3)
             self.sld_theta_3.blockSignals(False)
 
-        if self.scenario == 2 or self.scenario == 3:
+        if self.scenario == 2:
+            # Goal transformation (Body Frame-based)
+            G_p_zyx = np.array([[self.val_pos_x], \
+                                [self.val_pos_y], \
+                                [self.val_pos_z]])
+            G_T_zyx_trans = np.concatenate((np.concatenate((np.eye(3), G_p_zyx), axis=1), \
+                                            np.array([[0, 0, 0, 1]])), axis=0)
+            angle_z = np.deg2rad(self.val_rot_z)
+            angle_y = np.deg2rad(self.val_rot_y)
+            angle_x = np.deg2rad(self.val_rot_x)
+            G_R_z = np.array([[np.cos(angle_z), -np.sin(angle_z), 0], \
+                              [np.sin(angle_z),  np.cos(angle_z), 0], \
+                              [0,                0,               1]])
+            G_T_z = np.concatenate((np.concatenate((G_R_z, np.zeros((3, 1))), axis=1), \
+                                    np.array([[0, 0, 0, 1]])), axis=0)
+            G_R_y = np.array([[np.cos(angle_y),  0, np.sin(angle_y)], \
+                              [0,                1,               0], \
+                              [-np.sin(angle_y), 0, np.cos(angle_y)]])
+            G_T_y = np.concatenate((np.concatenate((G_R_y, np.zeros((3, 1))), axis=1), \
+                                    np.array([[0, 0, 0, 1]])), axis=0)
+            G_R_x = np.array([[1,               0,                0], \
+                              [0, np.cos(angle_x), -np.sin(angle_x)], \
+                              [0, np.sin(angle_x),  np.cos(angle_x)]])
+            G_T_x = np.concatenate((np.concatenate((G_R_x, np.zeros((3, 1))), axis=1), \
+                                    np.array([[0, 0, 0, 1]])), axis=0)
+
+            G_T_zyx = (((self.S_T.dot(G_T_zyx_trans)).dot(G_T_z)).dot(G_T_y)).dot(G_T_x)
+
+            G_T = G_T_zyx
+            G_p = G_T_zyx[0:3,3]
+            G_R = G_T_zyx[0:3,0:3]
+
+            self.quiver_Gp = G_T.dot(np.concatenate((self.S_p, np.array([[1]])), axis=0))
+            self.quiver_Gx = G_T.dot(np.concatenate((self.quiver_Sx, np.array([[1]])), axis=0))
+            self.quiver_Gy = G_T.dot(np.concatenate((self.quiver_Sy, np.array([[1]])), axis=0))
+            self.quiver_Gz = G_T.dot(np.concatenate((self.quiver_Sz, np.array([[1]])), axis=0))
+
+            # these are just to scale arrows of different coordinate systems to better distinguish between them
+            scale_goal = 1.5
+            self.axes.quiver(self.quiver_Gp[0], self.quiver_Gp[1], self.quiver_Gp[2], scale_goal*(self.quiver_Gx[0]-self.quiver_Gp[0]), scale_goal*(self.quiver_Gx[1]-self.quiver_Gp[1]), scale_goal*(self.quiver_Gx[2]-self.quiver_Gp[2]), color=['r'], arrow_length_ratio=0.15)
+            self.axes.quiver(self.quiver_Gp[0], self.quiver_Gp[1], self.quiver_Gp[2], scale_goal*(self.quiver_Gy[0]-self.quiver_Gp[0]), scale_goal*(self.quiver_Gy[1]-self.quiver_Gp[1]), scale_goal*(self.quiver_Gy[2]-self.quiver_Gp[2]), color=['g'], arrow_length_ratio=0.15)
+            self.axes.quiver(self.quiver_Gp[0], self.quiver_Gp[1], self.quiver_Gp[2], scale_goal*(self.quiver_Gz[0]-self.quiver_Gp[0]), scale_goal*(self.quiver_Gz[1]-self.quiver_Gp[1]), scale_goal*(self.quiver_Gz[2]-self.quiver_Gp[2]), color=['b'], arrow_length_ratio=0.15)
+
+            # update goal for IK problem
+            if self.fire_event:
+                self.fire_event = False
+ 
+                self.G_T_active = G_T
+
+            if not np.isnan(self.G_T_active).any():
+                # Solve IK problem at i-th iteration
+                error_i = RigidBodyDynamics.Inverse(E_T).dot(self.G_T_active) 
+                Twist_i = RigidBodyDynamics.LogMap(error_i)
+
+                # Use Jacobian
+                J_E_pinv = np.linalg.pinv(J_E) 
+       
+                Joints_vel = J_E_pinv.dot(Twist_i)
+
+                # revolute
+                self.val_theta_1 = self.val_theta_1 + np.rad2deg(Joints_vel[0]) * 0.1
+                if self.val_theta_1 > 180.0:
+                    self.val_theta_1 = 180.0
+                elif self.val_theta_1 < -180.0:
+                    self.val_theta_1 = -180.0
+
+                # revolute
+                self.val_theta_2 = self.val_theta_2 + np.rad2deg(Joints_vel[1]) * 0.1
+                if self.val_theta_2 > 180.0:
+                    self.val_theta_2 = 180.0
+                elif self.val_theta_2 < -180.0:
+                    self.val_theta_2 = -180.0
+
+                # revolute
+                self.val_theta_3 = self.val_theta_3 + np.rad2deg(Joints_vel[2]) * 0.1
+                if self.val_theta_3 > 180.0:
+                    self.val_theta_3 = 180.0
+                elif self.val_theta_3 < -180.0:
+                    self.val_theta_3 = -180.0
+
+                self.sld_theta_1.blockSignals(True)
+                self.sld_theta_1.setValue(self.val_theta_1)
+                self.sld_theta_1.blockSignals(False)
+
+                self.sld_theta_2.blockSignals(True)
+                self.sld_theta_2.setValue(self.val_theta_2)
+                self.sld_theta_2.blockSignals(False)
+
+                self.sld_theta_3.blockSignals(True)
+                self.sld_theta_3.setValue(self.val_theta_3)
+                self.sld_theta_3.blockSignals(False)
+
+        if self.scenario == 3 or self.scenario == 4 or self.scenario == 5:
             # 6-Joint SE(3)
             L1 = 0.50
             L2 = 0.25
@@ -783,7 +938,7 @@ class AppForm(QMainWindow):
                     ellipsoid_z_transformed[i][j] = ellipsoid_i_xyz[2][0]
             self.axes.plot_surface(ellipsoid_x_transformed, ellipsoid_y_transformed, ellipsoid_z_transformed, rstride=4, cstride=4, cmap='seismic', alpha=0.125)
 
-        if self.scenario == 3:
+        if self.scenario == 4:
             # Use Jacobian
             J_S = RigidBodyDynamics.AdjointMap(E_T).dot(J_E)
 
@@ -799,42 +954,42 @@ class AppForm(QMainWindow):
             Joints_vel = J_S_pinv.dot(Twist_S)
 
             # revolute
-            self.val_theta_1 = self.val_theta_1 + np.rad2deg(Joints_vel[0]) * 0.2
+            self.val_theta_1 = self.val_theta_1 + np.rad2deg(Joints_vel[0]) * 0.1
             if self.val_theta_1 > 180.0:
                 self.val_theta_1 = 180.0
             elif self.val_theta_1 < -180.0:
                 self.val_theta_1 = -180.0
 
             # revolute
-            self.val_theta_2 = self.val_theta_2 + np.rad2deg(Joints_vel[1]) * 0.2
+            self.val_theta_2 = self.val_theta_2 + np.rad2deg(Joints_vel[1]) * 0.1
             if self.val_theta_2 > 180.0:
                 self.val_theta_2 = 180.0
             elif self.val_theta_2 < -180.0:
                 self.val_theta_2 = -180.0
 
             # revolute
-            self.val_theta_3 = self.val_theta_3 + np.rad2deg(Joints_vel[2]) * 0.2
+            self.val_theta_3 = self.val_theta_3 + np.rad2deg(Joints_vel[2]) * 0.1
             if self.val_theta_3 > 180.0:
                 self.val_theta_3 = 180.0
             elif self.val_theta_3 < -180.0:
                 self.val_theta_3 = -180.0
 
             # revolute
-            self.val_theta_4 = self.val_theta_4 + np.rad2deg(Joints_vel[3]) * 0.2
+            self.val_theta_4 = self.val_theta_4 + np.rad2deg(Joints_vel[3]) * 0.1
             if self.val_theta_4 > 180.0:
                 self.val_theta_4 = 180.0
             elif self.val_theta_4 < -180.0:
                 self.val_theta_4 = -180.0
 
             # revolute
-            self.val_theta_5 = self.val_theta_5 + np.rad2deg(Joints_vel[4]) * 0.2
+            self.val_theta_5 = self.val_theta_5 + np.rad2deg(Joints_vel[4]) * 0.1
             if self.val_theta_5 > 180.0:
                 self.val_theta_5 = 180.0
             elif self.val_theta_5 < -180.0:
                 self.val_theta_5 = -180.0
 
             # revolute
-            self.val_theta_6 = self.val_theta_6 + np.rad2deg(Joints_vel[5]) * 0.2
+            self.val_theta_6 = self.val_theta_6 + np.rad2deg(Joints_vel[5]) * 0.1
             if self.val_theta_6 > 180.0:
                 self.val_theta_6 = 180.0
             elif self.val_theta_6 < -180.0:
@@ -863,6 +1018,131 @@ class AppForm(QMainWindow):
             self.sld_theta_6.blockSignals(True)
             self.sld_theta_6.setValue(self.val_theta_6)
             self.sld_theta_6.blockSignals(False)
+
+        if self.scenario == 5:
+            # Goal transformation (Body Frame-based)
+            G_p_zyx = np.array([[self.val_pos_x], \
+                                [self.val_pos_y], \
+                                [self.val_pos_z]])
+            G_T_zyx_trans = np.concatenate((np.concatenate((np.eye(3), G_p_zyx), axis=1), \
+                                            np.array([[0, 0, 0, 1]])), axis=0)
+            angle_z = np.deg2rad(self.val_rot_z)
+            angle_y = np.deg2rad(self.val_rot_y)
+            angle_x = np.deg2rad(self.val_rot_x)
+            G_R_z = np.array([[np.cos(angle_z), -np.sin(angle_z), 0], \
+                              [np.sin(angle_z),  np.cos(angle_z), 0], \
+                              [0,                0,               1]])
+            G_T_z = np.concatenate((np.concatenate((G_R_z, np.zeros((3, 1))), axis=1), \
+                                    np.array([[0, 0, 0, 1]])), axis=0)
+            G_R_y = np.array([[np.cos(angle_y),  0, np.sin(angle_y)], \
+                              [0,                1,               0], \
+                              [-np.sin(angle_y), 0, np.cos(angle_y)]])
+            G_T_y = np.concatenate((np.concatenate((G_R_y, np.zeros((3, 1))), axis=1), \
+                                    np.array([[0, 0, 0, 1]])), axis=0)
+            G_R_x = np.array([[1,               0,                0], \
+                              [0, np.cos(angle_x), -np.sin(angle_x)], \
+                              [0, np.sin(angle_x),  np.cos(angle_x)]])
+            G_T_x = np.concatenate((np.concatenate((G_R_x, np.zeros((3, 1))), axis=1), \
+                                    np.array([[0, 0, 0, 1]])), axis=0)
+
+            G_T_zyx = (((self.S_T.dot(G_T_zyx_trans)).dot(G_T_z)).dot(G_T_y)).dot(G_T_x)
+
+            G_T = G_T_zyx
+            G_p = G_T_zyx[0:3,3]
+            G_R = G_T_zyx[0:3,0:3]
+
+            self.quiver_Gp = G_T.dot(np.concatenate((self.S_p, np.array([[1]])), axis=0))
+            self.quiver_Gx = G_T.dot(np.concatenate((self.quiver_Sx, np.array([[1]])), axis=0))
+            self.quiver_Gy = G_T.dot(np.concatenate((self.quiver_Sy, np.array([[1]])), axis=0))
+            self.quiver_Gz = G_T.dot(np.concatenate((self.quiver_Sz, np.array([[1]])), axis=0))
+
+            # these are just to scale arrows of different coordinate systems to better distinguish between them
+            scale_goal = 1.5
+            self.axes.quiver(self.quiver_Gp[0], self.quiver_Gp[1], self.quiver_Gp[2], scale_goal*(self.quiver_Gx[0]-self.quiver_Gp[0]), scale_goal*(self.quiver_Gx[1]-self.quiver_Gp[1]), scale_goal*(self.quiver_Gx[2]-self.quiver_Gp[2]), color=['r'], arrow_length_ratio=0.15)
+            self.axes.quiver(self.quiver_Gp[0], self.quiver_Gp[1], self.quiver_Gp[2], scale_goal*(self.quiver_Gy[0]-self.quiver_Gp[0]), scale_goal*(self.quiver_Gy[1]-self.quiver_Gp[1]), scale_goal*(self.quiver_Gy[2]-self.quiver_Gp[2]), color=['g'], arrow_length_ratio=0.15)
+            self.axes.quiver(self.quiver_Gp[0], self.quiver_Gp[1], self.quiver_Gp[2], scale_goal*(self.quiver_Gz[0]-self.quiver_Gp[0]), scale_goal*(self.quiver_Gz[1]-self.quiver_Gp[1]), scale_goal*(self.quiver_Gz[2]-self.quiver_Gp[2]), color=['b'], arrow_length_ratio=0.15)
+
+            # update goal for IK problem
+            if self.fire_event:
+                self.fire_event = False
+ 
+                self.G_T_active = G_T
+
+            if not np.isnan(self.G_T_active).any():
+                # Solve IK problem at i-th iteration
+                error_i = RigidBodyDynamics.Inverse(E_T).dot(self.G_T_active) 
+                Twist_i = RigidBodyDynamics.LogMap(error_i)
+
+                # Use Jacobian
+                J_E_pinv = np.linalg.pinv(J_E) 
+       
+                Joints_vel = J_E_pinv.dot(Twist_i)
+
+                # revolute
+                self.val_theta_1 = self.val_theta_1 + np.rad2deg(Joints_vel[0]) * 0.1
+                if self.val_theta_1 > 180.0:
+                    self.val_theta_1 = 180.0
+                elif self.val_theta_1 < -180.0:
+                    self.val_theta_1 = -180.0
+
+                # revolute
+                self.val_theta_2 = self.val_theta_2 + np.rad2deg(Joints_vel[1]) * 0.1
+                if self.val_theta_2 > 180.0:
+                    self.val_theta_2 = 180.0
+                elif self.val_theta_2 < -180.0:
+                    self.val_theta_2 = -180.0
+
+                # revolute
+                self.val_theta_3 = self.val_theta_3 + np.rad2deg(Joints_vel[2]) * 0.1
+                if self.val_theta_3 > 180.0:
+                    self.val_theta_3 = 180.0
+                elif self.val_theta_3 < -180.0:
+                    self.val_theta_3 = -180.0
+
+                # revolute
+                self.val_theta_4 = self.val_theta_4 + np.rad2deg(Joints_vel[3]) * 0.1
+                if self.val_theta_4 > 180.0:
+                    self.val_theta_4 = 180.0
+                elif self.val_theta_4 < -180.0:
+                    self.val_theta_4 = -180.0
+
+                # revolute
+                self.val_theta_5 = self.val_theta_5 + np.rad2deg(Joints_vel[4]) * 0.1
+                if self.val_theta_5 > 180.0:
+                    self.val_theta_5 = 180.0
+                elif self.val_theta_5 < -180.0:
+                    self.val_theta_5 = -180.0
+
+                # revolute
+                self.val_theta_6 = self.val_theta_6 + np.rad2deg(Joints_vel[5]) * 0.1
+                if self.val_theta_6 > 180.0:
+                    self.val_theta_6 = 180.0
+                elif self.val_theta_6 < -180.0:
+                    self.val_theta_6 = -180.0
+
+                self.sld_theta_1.blockSignals(True)
+                self.sld_theta_1.setValue(self.val_theta_1)
+                self.sld_theta_1.blockSignals(False)
+
+                self.sld_theta_2.blockSignals(True)
+                self.sld_theta_2.setValue(self.val_theta_2)
+                self.sld_theta_2.blockSignals(False)
+
+                self.sld_theta_3.blockSignals(True)
+                self.sld_theta_3.setValue(self.val_theta_3)
+                self.sld_theta_3.blockSignals(False)
+
+                self.sld_theta_4.blockSignals(True)
+                self.sld_theta_4.setValue(self.val_theta_4)
+                self.sld_theta_4.blockSignals(False)
+
+                self.sld_theta_5.blockSignals(True)
+                self.sld_theta_5.setValue(self.val_theta_5)
+                self.sld_theta_5.blockSignals(False)
+
+                self.sld_theta_6.blockSignals(True)
+                self.sld_theta_6.setValue(self.val_theta_6)
+                self.sld_theta_6.blockSignals(False)
 
         self.canvas.draw()
 
@@ -903,6 +1183,24 @@ class AppForm(QMainWindow):
         if self.cbx_wz.isChecked():
             self.cbx_wz.setChecked(False)
             self.sld_wz.setValue(0.0)
+        if self.cbx_posx.isChecked():
+            self.cbx_posx.setChecked(False)
+            self.sld_posx.setValue(0.0)
+        if self.cbx_posy.isChecked():
+            self.cbx_posy.setChecked(False)
+            self.sld_posy.setValue(0.0)
+        if self.cbx_posz.isChecked():
+            self.cbx_posz.setChecked(False)
+            self.sld_posz.setValue(0.0)
+        if self.cbx_rotx.isChecked():
+            self.cbx_rotx.setChecked(False)
+            self.sld_rotx.setValue(0.0)
+        if self.cbx_roty.isChecked():
+            self.cbx_roty.setChecked(False)
+            self.sld_roty.setValue(0.0)
+        if self.cbx_rotz.isChecked():
+            self.cbx_rotz.setChecked(False)
+            self.sld_rotz.setValue(0.0)
 
         self.val_theta_1 = self.sld_theta_1.value()
         self.val_theta_2 = self.sld_theta_2.value()
@@ -916,12 +1214,23 @@ class AppForm(QMainWindow):
         self.val_omega_x = self.sld_wx.value()
         self.val_omega_y = self.sld_wy.value()
         self.val_omega_z = self.sld_wz.value()
+        self.val_pos_x = self.sld_posx.value()
+        self.val_pos_y = self.sld_posy.value()
+        self.val_pos_z = self.sld_posz.value()
+        self.val_rot_x = self.sld_rotx.value()
+        self.val_rot_y = self.sld_roty.value()
+        self.val_rot_z = self.sld_rotz.value()
 
         if self.rb_ik0.isChecked() and self.scenario != 0:
             self.scenario = 0
             self.rb_ik1.setChecked(False)
             self.rb_ik2.setChecked(False)
             self.rb_ik3.setChecked(False)
+            self.rb_ik4.setChecked(False)
+            self.rb_ik5.setChecked(False)
+
+            self.fire_event = False
+            self.G_T_active = np.NAN
 
             self.val_vel_x = 0
             self.val_vel_y = 0
@@ -935,6 +1244,18 @@ class AppForm(QMainWindow):
             self.sld_wx.setValue(0)
             self.sld_wy.setValue(0)
             self.sld_wz.setValue(0)
+            self.val_pos_x = 0
+            self.val_pos_y = 0
+            self.val_pos_z = 0
+            self.val_rot_x = 0
+            self.val_rot_y = 0
+            self.val_rot_z = 0
+            self.sld_posx.setValue(0)
+            self.sld_posy.setValue(0)
+            self.sld_posz.setValue(0)
+            self.sld_rotx.setValue(0)
+            self.sld_roty.setValue(0)
+            self.sld_rotz.setValue(0)
 
             self.cbx_theta_1.setEnabled(True)
             self.sld_theta_1.setEnabled(True)
@@ -960,11 +1281,28 @@ class AppForm(QMainWindow):
             self.sld_wy.setEnabled(False)
             self.cbx_wz.setEnabled(False)
             self.sld_wz.setEnabled(False)
+            self.cbx_posx.setEnabled(False)
+            self.sld_posx.setEnabled(False)
+            self.cbx_posy.setEnabled(False)
+            self.sld_posy.setEnabled(False)
+            self.cbx_posz.setEnabled(False)
+            self.sld_posz.setEnabled(False)
+            self.cbx_rotx.setEnabled(False)
+            self.sld_rotx.setEnabled(False)
+            self.cbx_roty.setEnabled(False)
+            self.sld_roty.setEnabled(False)
+            self.cbx_rotz.setEnabled(False)
+            self.sld_rotz.setEnabled(False)
         elif self.rb_ik1.isChecked() and self.scenario != 1:
             self.scenario = 1
             self.rb_ik0.setChecked(False)
             self.rb_ik2.setChecked(False)
             self.rb_ik3.setChecked(False)
+            self.rb_ik4.setChecked(False)
+            self.rb_ik5.setChecked(False)
+
+            self.fire_event = False
+            self.G_T_active = np.NAN
 
             self.cbx_theta_1.setEnabled(False)
             self.sld_theta_1.setEnabled(False)
@@ -990,11 +1328,28 @@ class AppForm(QMainWindow):
             self.sld_wy.setEnabled(True)
             self.cbx_wz.setEnabled(True)
             self.sld_wz.setEnabled(True)
+            self.cbx_posx.setEnabled(False)
+            self.sld_posx.setEnabled(False)
+            self.cbx_posy.setEnabled(False)
+            self.sld_posy.setEnabled(False)
+            self.cbx_posz.setEnabled(False)
+            self.sld_posz.setEnabled(False)
+            self.cbx_rotx.setEnabled(False)
+            self.sld_rotx.setEnabled(False)
+            self.cbx_roty.setEnabled(False)
+            self.sld_roty.setEnabled(False)
+            self.cbx_rotz.setEnabled(False)
+            self.sld_rotz.setEnabled(False)
         elif self.rb_ik2.isChecked() and self.scenario != 2:
             self.scenario = 2
             self.rb_ik0.setChecked(False)
             self.rb_ik1.setChecked(False)
             self.rb_ik3.setChecked(False)
+            self.rb_ik4.setChecked(False)
+            self.rb_ik5.setChecked(False)
+
+            self.fire_event = False
+            self.G_T_active = np.NAN
 
             self.val_vel_x = 0
             self.val_vel_y = 0
@@ -1008,6 +1363,79 @@ class AppForm(QMainWindow):
             self.sld_wx.setValue(0)
             self.sld_wy.setValue(0)
             self.sld_wz.setValue(0)
+
+            self.cbx_theta_1.setEnabled(False)
+            self.sld_theta_1.setEnabled(False)
+            self.cbx_theta_2.setEnabled(False)
+            self.sld_theta_2.setEnabled(False)
+            self.cbx_theta_3.setEnabled(False)
+            self.sld_theta_3.setEnabled(False)
+            self.cbx_theta_4.setEnabled(False)
+            self.sld_theta_4.setEnabled(False)
+            self.cbx_theta_5.setEnabled(False)
+            self.sld_theta_5.setEnabled(False)
+            self.cbx_theta_6.setEnabled(False)
+            self.sld_theta_6.setEnabled(False)
+            self.cbx_vx.setEnabled(False)
+            self.sld_vx.setEnabled(False)
+            self.cbx_vy.setEnabled(False)
+            self.sld_vy.setEnabled(False)
+            self.cbx_vz.setEnabled(False)
+            self.sld_vz.setEnabled(False)
+            self.cbx_wx.setEnabled(False)
+            self.sld_wx.setEnabled(False)
+            self.cbx_wy.setEnabled(False)
+            self.sld_wy.setEnabled(False)
+            self.cbx_wz.setEnabled(False)
+            self.sld_wz.setEnabled(False)
+            self.cbx_posx.setEnabled(True)
+            self.sld_posx.setEnabled(True)
+            self.cbx_posy.setEnabled(True)
+            self.sld_posy.setEnabled(True)
+            self.cbx_posz.setEnabled(True)
+            self.sld_posz.setEnabled(True)
+            self.cbx_rotx.setEnabled(True)
+            self.sld_rotx.setEnabled(True)
+            self.cbx_roty.setEnabled(True)
+            self.sld_roty.setEnabled(True)
+            self.cbx_rotz.setEnabled(True)
+            self.sld_rotz.setEnabled(True)
+
+        elif self.rb_ik3.isChecked() and self.scenario != 3:
+            self.scenario = 3
+            self.rb_ik0.setChecked(False)
+            self.rb_ik1.setChecked(False)
+            self.rb_ik2.setChecked(False)
+            self.rb_ik4.setChecked(False)
+            self.rb_ik5.setChecked(False)
+
+            self.fire_event = False
+            self.G_T_active = np.NAN
+
+            self.val_vel_x = 0
+            self.val_vel_y = 0
+            self.val_vel_z = 0
+            self.val_omega_x = 0
+            self.val_omega_y = 0
+            self.val_omega_z = 0
+            self.sld_vx.setValue(0)
+            self.sld_vy.setValue(0)
+            self.sld_vz.setValue(0)
+            self.sld_wx.setValue(0)
+            self.sld_wy.setValue(0)
+            self.sld_wz.setValue(0)
+            self.val_pos_x = 0
+            self.val_pos_y = 0
+            self.val_pos_z = 0
+            self.val_rot_x = 0
+            self.val_rot_y = 0
+            self.val_rot_z = 0
+            self.sld_posx.setValue(0)
+            self.sld_posy.setValue(0)
+            self.sld_posz.setValue(0)
+            self.sld_rotx.setValue(0)
+            self.sld_roty.setValue(0)
+            self.sld_rotz.setValue(0)
 
             self.cbx_theta_1.setEnabled(True)
             self.sld_theta_1.setEnabled(True)
@@ -1033,11 +1461,28 @@ class AppForm(QMainWindow):
             self.sld_wy.setEnabled(False)
             self.cbx_wz.setEnabled(False)
             self.sld_wz.setEnabled(False)
-        elif self.rb_ik3.isChecked() and self.scenario != 3:
-            self.scenario = 3
+            self.cbx_posx.setEnabled(False)
+            self.sld_posx.setEnabled(False)
+            self.cbx_posy.setEnabled(False)
+            self.sld_posy.setEnabled(False)
+            self.cbx_posz.setEnabled(False)
+            self.sld_posz.setEnabled(False)
+            self.cbx_rotx.setEnabled(False)
+            self.sld_rotx.setEnabled(False)
+            self.cbx_roty.setEnabled(False)
+            self.sld_roty.setEnabled(False)
+            self.cbx_rotz.setEnabled(False)
+            self.sld_rotz.setEnabled(False)
+        elif self.rb_ik4.isChecked() and self.scenario != 4:
+            self.scenario = 4
             self.rb_ik0.setChecked(False)
             self.rb_ik1.setChecked(False)
             self.rb_ik2.setChecked(False)
+            self.rb_ik3.setChecked(False)
+            self.rb_ik5.setChecked(False)
+
+            self.fire_event = False
+            self.G_T_active = np.NAN
 
             self.cbx_theta_1.setEnabled(False)
             self.sld_theta_1.setEnabled(False)
@@ -1063,6 +1508,78 @@ class AppForm(QMainWindow):
             self.sld_wy.setEnabled(True)
             self.cbx_wz.setEnabled(True)
             self.sld_wz.setEnabled(True)
+            self.cbx_posx.setEnabled(False)
+            self.sld_posx.setEnabled(False)
+            self.cbx_posy.setEnabled(False)
+            self.sld_posy.setEnabled(False)
+            self.cbx_posz.setEnabled(False)
+            self.sld_posz.setEnabled(False)
+            self.cbx_rotx.setEnabled(False)
+            self.sld_rotx.setEnabled(False)
+            self.cbx_roty.setEnabled(False)
+            self.sld_roty.setEnabled(False)
+            self.cbx_rotz.setEnabled(False)
+            self.sld_rotz.setEnabled(False)
+        elif self.rb_ik5.isChecked() and self.scenario != 5:
+            self.scenario = 5
+            self.rb_ik0.setChecked(False)
+            self.rb_ik1.setChecked(False)
+            self.rb_ik2.setChecked(False)
+            self.rb_ik3.setChecked(False)
+            self.rb_ik4.setChecked(False)
+
+            self.fire_event = False
+            self.G_T_active = np.NAN
+
+            self.val_vel_x = 0
+            self.val_vel_y = 0
+            self.val_vel_z = 0
+            self.val_omega_x = 0
+            self.val_omega_y = 0
+            self.val_omega_z = 0
+            self.sld_vx.setValue(0)
+            self.sld_vy.setValue(0)
+            self.sld_vz.setValue(0)
+            self.sld_wx.setValue(0)
+            self.sld_wy.setValue(0)
+            self.sld_wz.setValue(0)
+
+            self.cbx_theta_1.setEnabled(False)
+            self.sld_theta_1.setEnabled(False)
+            self.cbx_theta_2.setEnabled(False)
+            self.sld_theta_2.setEnabled(False)
+            self.cbx_theta_3.setEnabled(False)
+            self.sld_theta_3.setEnabled(False)
+            self.cbx_theta_4.setEnabled(False)
+            self.sld_theta_4.setEnabled(False)
+            self.cbx_theta_5.setEnabled(False)
+            self.sld_theta_5.setEnabled(False)
+            self.cbx_theta_6.setEnabled(False)
+            self.sld_theta_6.setEnabled(False)
+            self.cbx_vx.setEnabled(False)
+            self.sld_vx.setEnabled(False)
+            self.cbx_vy.setEnabled(False)
+            self.sld_vy.setEnabled(False)
+            self.cbx_vz.setEnabled(False)
+            self.sld_vz.setEnabled(False)
+            self.cbx_wx.setEnabled(False)
+            self.sld_wx.setEnabled(False)
+            self.cbx_wy.setEnabled(False)
+            self.sld_wy.setEnabled(False)
+            self.cbx_wz.setEnabled(False)
+            self.sld_wz.setEnabled(False)
+            self.cbx_posx.setEnabled(True)
+            self.sld_posx.setEnabled(True)
+            self.cbx_posy.setEnabled(True)
+            self.sld_posy.setEnabled(True)
+            self.cbx_posz.setEnabled(True)
+            self.sld_posz.setEnabled(True)
+            self.cbx_rotx.setEnabled(True)
+            self.sld_rotx.setEnabled(True)
+            self.cbx_roty.setEnabled(True)
+            self.sld_roty.setEnabled(True)
+            self.cbx_rotz.setEnabled(True)
+            self.sld_rotz.setEnabled(True)
 
         #self.on_draw()
 
@@ -1226,6 +1743,78 @@ class AppForm(QMainWindow):
         #self.sld_wz.setTickPosition(QSlider.TicksBelow)
         self.connect(self.sld_wz, SIGNAL('valueChanged(int)'), self.on_update_values)
 
+        self.cbx_posx = QCheckBox('reset')
+        self.cbx_posx.setChecked(False)
+        self.connect(self.cbx_posx, SIGNAL('stateChanged(int)'), self.on_update_values)
+
+        self.sld_posx = DoubleSlider(Qt.Horizontal)
+        self.sld_posx.setMinimum(-2.0)
+        self.sld_posx.setMaximum(2.0)
+        self.sld_posx.setValue(0.0)
+        self.sld_posx.setTracking(True)
+        #self.sld_posx.setTickPosition(QSlider.TicksBelow)
+        self.connect(self.sld_posx, SIGNAL('valueChanged(int)'), self.on_update_values)
+
+        self.cbx_posy = QCheckBox('reset')
+        self.cbx_posy.setChecked(False)
+        self.connect(self.cbx_posy, SIGNAL('stateChanged(int)'), self.on_update_values)
+
+        self.sld_posy = DoubleSlider(Qt.Horizontal)
+        self.sld_posy.setMinimum(-2.0)
+        self.sld_posy.setMaximum(2.0)
+        self.sld_posy.setValue(0.0)
+        self.sld_posy.setTracking(True)
+        #self.sld_posy.setTickPosition(QSlider.TicksBelow)
+        self.connect(self.sld_posy, SIGNAL('valueChanged(int)'), self.on_update_values)
+
+        self.cbx_posz = QCheckBox('reset')
+        self.cbx_posz.setChecked(False)
+        self.connect(self.cbx_posz, SIGNAL('stateChanged(int)'), self.on_update_values)
+
+        self.sld_posz = DoubleSlider(Qt.Horizontal)
+        self.sld_posz.setMinimum(-2.0)
+        self.sld_posz.setMaximum(2.0)
+        self.sld_posz.setValue(0.0)
+        self.sld_posz.setTracking(True)
+        #self.sld_posz.setTickPosition(QSlider.TicksBelow)
+        self.connect(self.sld_posz, SIGNAL('valueChanged(int)'), self.on_update_values)
+
+        self.cbx_rotx = QCheckBox('reset')
+        self.cbx_rotx.setChecked(False)
+        self.connect(self.cbx_rotx, SIGNAL('stateChanged(int)'), self.on_update_values)
+
+        self.sld_rotx = DoubleSlider(Qt.Horizontal)
+        self.sld_rotx.setMinimum(-180.0)
+        self.sld_rotx.setMaximum(180.0)
+        self.sld_rotx.setValue(0.0)
+        self.sld_rotx.setTracking(True)
+        #self.sld_rotx.setTickPosition(QSlider.TicksBelow)
+        self.connect(self.sld_rotx, SIGNAL('valueChanged(int)'), self.on_update_values)
+
+        self.cbx_roty = QCheckBox('reset')
+        self.cbx_roty.setChecked(False)
+        self.connect(self.cbx_roty, SIGNAL('stateChanged(int)'), self.on_update_values)
+
+        self.sld_roty = DoubleSlider(Qt.Horizontal)
+        self.sld_roty.setMinimum(-180.0)
+        self.sld_roty.setMaximum(180.0)
+        self.sld_roty.setValue(0.0)
+        self.sld_roty.setTracking(True)
+        #self.sld_roty.setTickPosition(QSlider.TicksBelow)
+        self.connect(self.sld_roty, SIGNAL('valueChanged(int)'), self.on_update_values)
+
+        self.cbx_rotz = QCheckBox('reset')
+        self.cbx_rotz.setChecked(False)
+        self.connect(self.cbx_rotz, SIGNAL('stateChanged(int)'), self.on_update_values)
+
+        self.sld_rotz = DoubleSlider(Qt.Horizontal)
+        self.sld_rotz.setMinimum(-180.0)
+        self.sld_rotz.setMaximum(180.0)
+        self.sld_rotz.setValue(0.0)
+        self.sld_rotz.setTracking(True)
+        #self.sld_rotz.setTickPosition(QSlider.TicksBelow)
+        self.connect(self.sld_rotz, SIGNAL('valueChanged(int)'), self.on_update_values)
+
         self.rb_ik0 = QCheckBox('FK #1')
         self.rb_ik0.setChecked(True)
         self.connect(self.rb_ik0, SIGNAL('stateChanged(int)'), self.on_update_values)
@@ -1234,13 +1823,21 @@ class AppForm(QMainWindow):
         self.rb_ik1.setChecked(False)
         self.connect(self.rb_ik1, SIGNAL('stateChanged(int)'), self.on_update_values)
 
-        self.rb_ik2 = QCheckBox('FK #2')
+        self.rb_ik2 = QCheckBox('Full IK #1')
         self.rb_ik2.setChecked(False)
         self.connect(self.rb_ik2, SIGNAL('stateChanged(int)'), self.on_update_values)
 
-        self.rb_ik3 = QCheckBox('IK #2')
+        self.rb_ik3 = QCheckBox('FK #2')
         self.rb_ik3.setChecked(False)
         self.connect(self.rb_ik3, SIGNAL('stateChanged(int)'), self.on_update_values)
+
+        self.rb_ik4 = QCheckBox('IK #2')
+        self.rb_ik4.setChecked(False)
+        self.connect(self.rb_ik4, SIGNAL('stateChanged(int)'), self.on_update_values)
+
+        self.rb_ik5 = QCheckBox('Full IK #2')
+        self.rb_ik5.setChecked(False)
+        self.connect(self.rb_ik5, SIGNAL('stateChanged(int)'), self.on_update_values)
 
         hbox_theta1 = QHBoxLayout()
         for w in [ self.cbx_theta_1, QLabel('θ1'), QLabel('-180'), self.sld_theta_1, QLabel('180')]:
@@ -1273,37 +1870,37 @@ class AppForm(QMainWindow):
             hbox_theta6.setAlignment(w, Qt.AlignVCenter)
 
         hbox_vx = QHBoxLayout()
-        for w in [ self.cbx_vx, QLabel('vx'), QLabel('-1'), self.sld_vx, QLabel('1')]:
+        for w in [ self.cbx_vx, QLabel('vx'), QLabel('-1'), self.sld_vx, QLabel('1'), self.cbx_posx, QLabel('px'), QLabel('-2'), self.sld_posx, QLabel('2')]:
             hbox_vx.addWidget(w)
             hbox_vx.setAlignment(w, Qt.AlignVCenter)
 
         hbox_vy = QHBoxLayout()
-        for w in [ self.cbx_vy, QLabel('vy'), QLabel('-1'), self.sld_vy, QLabel('1')]:
+        for w in [ self.cbx_vy, QLabel('vy'), QLabel('-1'), self.sld_vy, QLabel('1'), self.cbx_posy, QLabel('py'), QLabel('-2'), self.sld_posy, QLabel('2')]:
             hbox_vy.addWidget(w)
             hbox_vy.setAlignment(w, Qt.AlignVCenter)
 
         hbox_vz = QHBoxLayout()
-        for w in [ self.cbx_vz, QLabel('vz'), QLabel('-1'), self.sld_vz, QLabel('1')]:
+        for w in [ self.cbx_vz, QLabel('vz'), QLabel('-1'), self.sld_vz, QLabel('1'), self.cbx_posz, QLabel('pz'), QLabel('-2'), self.sld_posz, QLabel('2')]:
             hbox_vz.addWidget(w)
             hbox_vz.setAlignment(w, Qt.AlignVCenter)
 
         hbox_wx = QHBoxLayout()
-        for w in [ self.cbx_wx, QLabel('ωx'), QLabel('-180'), self.sld_wx, QLabel('180')]:
+        for w in [ self.cbx_wx, QLabel('ωx'), QLabel('-180'), self.sld_wx, QLabel('180'), self.cbx_rotx, QLabel('rx'), QLabel('-180'), self.sld_rotx, QLabel('180')]:
             hbox_wx.addWidget(w)
             hbox_wx.setAlignment(w, Qt.AlignVCenter)
 
         hbox_wy = QHBoxLayout()
-        for w in [ self.cbx_wy, QLabel('ωy'), QLabel('-180'), self.sld_wy, QLabel('180')]:
+        for w in [ self.cbx_wy, QLabel('ωy'), QLabel('-180'), self.sld_wy, QLabel('180'), self.cbx_roty, QLabel('ry'), QLabel('-180'), self.sld_roty, QLabel('180')]:
             hbox_wy.addWidget(w)
             hbox_wy.setAlignment(w, Qt.AlignVCenter)
 
         hbox_wz = QHBoxLayout()
-        for w in [ self.cbx_wz, QLabel('ωz'), QLabel('-180'), self.sld_wz, QLabel('180')]:
+        for w in [ self.cbx_wz, QLabel('ωz'), QLabel('-180'), self.sld_wz, QLabel('180'), self.cbx_rotz, QLabel('rz'), QLabel('-180'), self.sld_rotz, QLabel('180')]:
             hbox_wz.addWidget(w)
             hbox_wz.setAlignment(w, Qt.AlignVCenter)
 
         hbox_rb = QHBoxLayout()
-        for w in [ self.rb_ik0, self.rb_ik1, self.rb_ik2, self.rb_ik3 ]:
+        for w in [ self.rb_ik0, self.rb_ik1, self.rb_ik2, self.rb_ik3, self.rb_ik4, self.rb_ik5 ]:
             hbox_rb.addWidget(w)
             hbox_rb.setAlignment(w, Qt.AlignVCenter)
 
