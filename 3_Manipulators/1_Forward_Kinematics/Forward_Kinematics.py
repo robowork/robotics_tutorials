@@ -10,6 +10,7 @@ import matplotlib as plt
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
+from matplotlib import cm
 
 from mpl_toolkits import mplot3d
 
@@ -364,6 +365,22 @@ class AppForm(QMainWindow):
                 self.axes.quiver(self.quiver_Ep[0], self.quiver_Ep[1], self.quiver_Ep[2], axis_halflen*(self.quiver_Ee[0]-self.quiver_Ep[0]), axis_halflen*(self.quiver_Ee[1]-self.quiver_Ep[1]), axis_halflen*(self.quiver_Ee[2]-self.quiver_Ep[2]), color=['m'], arrow_length_ratio=0.15)
                 self.axes.quiver(self.quiver_Ep[0], self.quiver_Ep[1], self.quiver_Ep[2], -axis_halflen*(self.quiver_Ee[0]-self.quiver_Ep[0]), -axis_halflen*(self.quiver_Ee[1]-self.quiver_Ep[1]), -axis_halflen*(self.quiver_Ee[2]-self.quiver_Ep[2]), color=['m'], arrow_length_ratio=0.15)
 
+            ellipsoid_u = np.linspace(0, 2*np.pi, 25)
+            ellipsoid_v = np.linspace(0, np.pi, 25)
+            ellipsoid_x = np.sqrt(W[0]) * np.outer(np.cos(ellipsoid_u), np.sin(ellipsoid_v))
+            ellipsoid_y = np.sqrt(W[1]) * np.outer(np.sin(ellipsoid_u), np.sin(ellipsoid_v))
+            ellipsoid_z = np.sqrt(W[2]) * np.outer(np.ones_like(ellipsoid_u), np.cos(ellipsoid_v))
+            ellipsoid_x_transformed = ellipsoid_x.copy()
+            ellipsoid_y_transformed = ellipsoid_y.copy()
+            ellipsoid_z_transformed = ellipsoid_z.copy()
+            for j in range(len(ellipsoid_x_transformed)):
+                for i in range(len(ellipsoid_x_transformed[j])):
+                    ellipsoid_i_xyz = E_T.dot(np.concatenate((np.concatenate((V,np.array([[0],[0],[0]])), axis=1), np.array([[0,0,0,1]])), axis=0)).dot(np.array([[ellipsoid_x_transformed[i][j]], [ellipsoid_y_transformed[i][j]], [ellipsoid_z_transformed[i][j]], [1]]))
+                    ellipsoid_x_transformed[i][j] = ellipsoid_i_xyz[0][0]
+                    ellipsoid_y_transformed[i][j] = ellipsoid_i_xyz[1][0]
+                    ellipsoid_z_transformed[i][j] = ellipsoid_i_xyz[2][0]
+            self.axes.plot_surface(ellipsoid_x_transformed, ellipsoid_y_transformed, ellipsoid_z_transformed, rstride=4, cstride=4, cmap='seismic', alpha=0.125)
+
         if self.scenario == 1:
             # 3-Joint SE(3)
             L1 = 0.25
@@ -543,6 +560,23 @@ class AppForm(QMainWindow):
 
                 self.axes.quiver(self.quiver_Ep[0], self.quiver_Ep[1], self.quiver_Ep[2], axis_halflen*(self.quiver_Ee[0]-self.quiver_Ep[0]), axis_halflen*(self.quiver_Ee[1]-self.quiver_Ep[1]), axis_halflen*(self.quiver_Ee[2]-self.quiver_Ep[2]), color=['m'], arrow_length_ratio=0.15)
                 self.axes.quiver(self.quiver_Ep[0], self.quiver_Ep[1], self.quiver_Ep[2], -axis_halflen*(self.quiver_Ee[0]-self.quiver_Ep[0]), -axis_halflen*(self.quiver_Ee[1]-self.quiver_Ep[1]), -axis_halflen*(self.quiver_Ee[2]-self.quiver_Ep[2]), color=['m'], arrow_length_ratio=0.15)
+
+            ellipsoid_u = np.linspace(0, 2*np.pi, 25)
+            ellipsoid_v = np.linspace(0, np.pi, 25)
+            ellipsoid_x = np.sqrt(W[0]) * np.outer(np.cos(ellipsoid_u), np.sin(ellipsoid_v))
+            ellipsoid_y = np.sqrt(W[1]) * np.outer(np.sin(ellipsoid_u), np.sin(ellipsoid_v))
+            ellipsoid_z = np.sqrt(W[2]) * np.outer(np.ones_like(ellipsoid_u), np.cos(ellipsoid_v))
+            ellipsoid_x_transformed = ellipsoid_x.copy()
+            ellipsoid_y_transformed = ellipsoid_y.copy()
+            ellipsoid_z_transformed = ellipsoid_z.copy()
+            for j in range(len(ellipsoid_x_transformed)):
+                for i in range(len(ellipsoid_x_transformed[j])):
+                    ellipsoid_i_xyz = E_T.dot(np.concatenate((np.concatenate((V,np.array([[0],[0],[0]])), axis=1), np.array([[0,0,0,1]])), axis=0)).dot(np.array([[ellipsoid_x_transformed[i][j]], [ellipsoid_y_transformed[i][j]], [ellipsoid_z_transformed[i][j]], [1]]))
+                    ellipsoid_x_transformed[i][j] = ellipsoid_i_xyz[0][0]
+                    ellipsoid_y_transformed[i][j] = ellipsoid_i_xyz[1][0]
+                    ellipsoid_z_transformed[i][j] = ellipsoid_i_xyz[2][0]
+            self.axes.plot_surface(ellipsoid_x_transformed, ellipsoid_y_transformed, ellipsoid_z_transformed, rstride=4, cstride=4, cmap='seismic', alpha=0.125)
+
 
         self.canvas.draw()
 
