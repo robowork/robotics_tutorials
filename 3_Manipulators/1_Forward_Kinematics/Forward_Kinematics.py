@@ -111,7 +111,7 @@ class DoubleSlider(QSlider):
 class AppForm(QMainWindow):
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
-        self.setWindowTitle('Forward Kinematics')
+        self.setWindowTitle('Manipulation: Forward Kinematics')
 
         self.create_menu()
         self.create_main_frame()
@@ -777,7 +777,7 @@ class AppForm(QMainWindow):
         self.setCentralWidget(self.main_frame)
     
     def create_status_bar(self):
-        self.status_text = QLabel("Transformations")
+        self.status_text = QLabel("Forward Kinematics")
         self.statusBar().addWidget(self.status_text, 1)
         
     def create_menu(self):        

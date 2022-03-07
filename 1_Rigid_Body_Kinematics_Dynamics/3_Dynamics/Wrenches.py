@@ -589,7 +589,7 @@ class AppForm(QMainWindow):
         self.setCentralWidget(self.main_frame)
     
     def create_status_bar(self):
-        self.status_text = QLabel("Transformations")
+        self.status_text = QLabel("Wrenches")
         self.statusBar().addWidget(self.status_text, 1)
         
     def create_menu(self):        

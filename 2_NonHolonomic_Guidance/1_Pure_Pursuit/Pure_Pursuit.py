@@ -120,7 +120,7 @@ def setupBody(axles_distance, half_length, half_width, half_height):
 class AppForm(QMainWindow):
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
-        self.setWindowTitle('Non-Holonomic Robot')
+        self.setWindowTitle('Non-Holonomic Guidance: Pure Pursuit')
 
         self.create_menu()
         self.create_main_frame()
@@ -538,7 +538,7 @@ class AppForm(QMainWindow):
         self.setCentralWidget(self.main_frame)
     
     def create_status_bar(self):
-        self.status_text = QLabel("Non-Holonomic Robot")
+        self.status_text = QLabel("Pure Pursuit")
         self.statusBar().addWidget(self.status_text, 1)
         
     def create_menu(self):        
