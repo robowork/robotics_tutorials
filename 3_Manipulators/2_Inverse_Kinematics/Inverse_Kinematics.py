@@ -245,7 +245,7 @@ class AppForm(QMainWindow):
     def eventFilter(self, source, event):
         if event.type() == QEvent.KeyPress:
             #print('KeyPress: %s [%r]' % (event.key(), source))
-            if event.key() == 32:  # spacebar
+            if event.key() == Qt.Key_Space:  # spacebar
                 self.fire_event = True
         return super(AppForm, self).eventFilter(source, event)
 
