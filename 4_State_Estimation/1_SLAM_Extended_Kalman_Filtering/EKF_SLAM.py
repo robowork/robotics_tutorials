@@ -147,34 +147,15 @@ class AppForm(QMainWindow):
 
         self.num_landmarks = len(np.transpose(self.m_groundtruth))
 
-        self.sigma_Rwheel = 1.0 * np.deg2rad(5.0)
-        self.sigma_Lwheel = 1.0 * np.deg2rad(5.0)
-
-        self.sigma_range = 2.0 * 0.25
-        self.sigma_angle = 2.0 * np.deg2rad(2.5)
-   
-        self.Q = 1.0 * np.array([[0.1,               0], \
-                                 [0,   np.deg2rad(1.0)]])
-        self.R = 1.0 * np.array([[0.25,               0], \
-                                 [0,    np.deg2rad(2.5)]])
-
         self.m_estim = np.copy(self.m_groundtruth)
-        # for i in range(0, len(self.m_groundtruth)):
-        #     self.m_estim[i] = 5 * [self.m_groundtruth[i][0], self.m_groundtruth[i][1]] / np.linalg.norm(self.m_groundtruth[i])  #initialize at 5m range
+        for i in range(len(self.m_groundtruth)):
+            self.m_estim[:,[i]] = 10.0 * self.m_groundtruth[:,[i]] / np.linalg.norm(self.m_groundtruth[:,[i]])  #initialize at 10m range
 
         ksi_0 = np.array([[0.0], \
                           [0.0], \
                           [np.deg2rad(0.0)]])  # [x, y, theta]
         self.ksi_groundtruth = ksi_0
         self.ksi_estim = ksi_0
-
-        self.S_ksi_estim = 1.0 * np.array([[0.001,     0,     0], \
-                                           [0,     0.001,     0], \
-                                           [0,         0, 0.001]])
-        self.S_m_new = 1.0 * np.array([[0.5,   0], \
-                                       [0,   0.1]])
-        self.S_estim = np.concatenate((np.concatenate((self.S_ksi_estim, np.zeros((3, self.m_groundtruth.size))), axis=1), \
-                                       np.concatenate((np.transpose(np.zeros((3, self.m_groundtruth.size))), np.kron(np.eye(self.num_landmarks,dtype=float),self.S_m_new)), axis=1)), axis=0)
 
         self.u_t = np.array([[0.0], \
                              [0.0]])  # input forward and turn velocity
@@ -187,6 +168,39 @@ class AppForm(QMainWindow):
         self.timer = QTimer()
         self.timer.timeout.connect(self.on_timer)
         self.timer.start(self.timer_period * 1000)
+
+        #r = [-1, 1]
+        #for s, e in combinations(np.array(list(product(r, r, r))), 2):
+        #    if np.sum(np.abs(s-e)) == r[1]-r[0]:
+        #        print(s, e)
+        #        self.axes.plot3D(*zip(s, e), color="k")
+        self.axles_distance = 0
+        self.half_length = 0.5
+        self.half_width = 0.5
+        self.half_height = 0.10
+        self.body_vertices = setupBody(self.axles_distance, self.half_length, self.half_width, self.half_height)
+
+        self.sigma_Rwheel = 0.10  # wheel velocity
+        self.sigma_Lwheel = 0.10  # wheel velocity
+
+        self.sigma_v = np.sqrt( (0.5)*((self.sigma_Rwheel)**2 + (self.sigma_Lwheel)**2)*(0.5) )  # forward velocity
+        self.sigma_w = np.sqrt( (0.5/self.half_width)*((self.sigma_Rwheel)**2 + (-self.sigma_Lwheel)**2)*(0.5/self.half_width) )  # rotational velocity
+
+        self.sigma_range = 1.0  # landmark relative ranging # static,if changing then for every pose-landmark estimate based on range
+        self.sigma_bearing = np.deg2rad(5.0)  # landmark relative bearing # static,if changing then for every pose-landmark estimate based on range
+   
+        self.Q = 1.0 * np.array([[self.sigma_v**2,               0], \
+                                 [0,               self.sigma_w**2]])
+        self.R = 1.0 * np.array([[self.sigma_range**2,                     0], \
+                                 [0,                   self.sigma_bearing**2]])
+
+        self.S_ksi_estim = 1.0 * np.array([[0.01**2,       0,                  0], \
+                                           [0,       0.01**2,                  0], \
+                                           [0,             0, np.deg2rad(0.1)**2]])
+        self.S_m_new = 1.0 * np.array([[0.5**2,      0], \
+                                       [0,      0.5**2]])
+        self.S_estim = np.concatenate((np.concatenate((self.S_ksi_estim, np.zeros((3, self.m_groundtruth.size))), axis=1), \
+                                       np.concatenate((np.transpose(np.zeros((3, self.m_groundtruth.size))), np.kron(np.eye(self.num_landmarks,dtype=float),self.S_m_new)), axis=1)), axis=0)
 
         # Space Frame / origin
         self.S_p = np.array([[0], \
@@ -207,17 +221,6 @@ class AppForm(QMainWindow):
                                    [0], \
                                    [1]])
 
-        #r = [-1, 1]
-        #for s, e in combinations(np.array(list(product(r, r, r))), 2):
-        #    if np.sum(np.abs(s-e)) == r[1]-r[0]:
-        #        print(s, e)
-        #        self.axes.plot3D(*zip(s, e), color="k")
-        self.axles_distance = 0
-        self.half_length = 0.5
-        self.half_width = 0.5
-        self.half_height = 0.10
-        self.body_vertices = setupBody(self.axles_distance, self.half_length, self.half_width, self.half_height)
-
         #self.on_draw()
 
     def eventFilter(self, source, event):
@@ -225,11 +228,11 @@ class AppForm(QMainWindow):
             #print('KeyPress: %s [%r]' % (event.key(), source))
             if event.key() == Qt.Key_Up:  # up
                 self.u_t[0][0] = self.u_t[0][0] + 0.5
-            elif event.key() == 16777237:  # down
+            elif event.key() == Qt.Key_Down:  # down
                 self.u_t[0][0] = self.u_t[0][0] - 0.5
-            elif event.key() == 16777234:  # left
+            elif event.key() == Qt.Key_Left:  # left
                 self.u_t[1][0] = self.u_t[1][0] + 0.1
-            elif event.key() == 16777236:  # right
+            elif event.key() == Qt.Key_Right:  # right
                 self.u_t[1][0] = self.u_t[1][0] - 0.1
             elif event.key() == Qt.Key_Space:  # spacebar
                 self.fire_event = True
@@ -261,12 +264,12 @@ class AppForm(QMainWindow):
                 self.u_t[1][0] = self.u_t[1][0] - np.sign(self.u_t[1][0]) * 0.01
 
         # update low-level Joint-Space commands (wheels) & add noise
-        u_R = self.u_t[0][0] + self.u_t[1][0] * self.half_width + np.max(np.array([-2.0*self.sigma_Rwheel, np.min(np.array([2.0*self.sigma_Rwheel, self.rng.standard_normal()*self.sigma_Rwheel]))]))
-        u_L = self.u_t[0][0] - self.u_t[1][0] * self.half_width + np.max(np.array([-2.0*self.sigma_Lwheel, np.min(np.array([2.0*self.sigma_Lwheel, self.rng.standard_normal()*self.sigma_Lwheel]))]))
+        u_R = self.u_t[0][0] + self.u_t[1][0] * self.half_width + np.max(np.array([-2.0*self.sigma_Rwheel, np.min(np.array([2.0*self.sigma_Rwheel, self.rng.normal(0.0, self.sigma_Rwheel)]))]))
+        u_L = self.u_t[0][0] - self.u_t[1][0] * self.half_width + np.max(np.array([-2.0*self.sigma_Lwheel, np.min(np.array([2.0*self.sigma_Lwheel, self.rng.normal(0.0, self.sigma_Lwheel)]))]))
 
         # calculate Body Frame kinematics based on joint-space velocities
-        u_vel = (u_R + u_L)/2;
-        u_rot = (u_R - u_L)/(2 * self.half_width)
+        u_vel = (0.5)*(u_R + u_L);
+        u_rot = (0.5/self.half_width)*(u_R - u_L)
 
         x_dot = u_vel * np.cos( self.ksi_groundtruth[2][0] )
         y_dot = u_vel * np.sin( self.ksi_groundtruth[2][0] )
@@ -276,6 +279,11 @@ class AppForm(QMainWindow):
         self.ksi_groundtruth[0][0] = self.ksi_groundtruth[0][0] + x_dot * self.timer_period
         self.ksi_groundtruth[1][0] = self.ksi_groundtruth[1][0] + y_dot * self.timer_period
         self.ksi_groundtruth[2][0] = self.ksi_groundtruth[2][0] + theta_dot * self.timer_period
+        #wrapToPi for theta_groundtruth
+        #while self.ksi_groundtruth[2][0] > 2*np.pi:
+        #    self.ksi_groundtruth[2][0] = self.ksi_groundtruth[2][0] - np.pi
+        #while self.ksi_groundtruth[2][0] <= -2*np.pi:
+        #    self.ksi_groundtruth[2][0] = self.ksi_groundtruth[2][0] + np.pi
 
         #print(self.timer_value)
 
@@ -309,20 +317,25 @@ class AppForm(QMainWindow):
             #self.axes.plot3D(*zip(v0_transformed[0:2], v1_transformed[0:2]), color="b")
             self.axes.plot([v0_transformed[0], v1_transformed[0]], [v0_transformed[1], v1_transformed[1]], color="b")
 
-        # draw groundtruth landmarks
-        for i in range(self.num_landmarks):
-            self.axes.scatter([self.m_groundtruth[0][i]], [self.m_groundtruth[1][i]], color="k")
-            self.axes.plot([self.ksi_groundtruth[0][0], self.m_groundtruth[0][i]], [self.ksi_groundtruth[1][0], self.m_groundtruth[1][i]], color="k", linestyle="dashed", linewidth=1.0)
-
         # form range bearing measurements, corrupted by noise
         z_mi = np.empty((2,self.num_landmarks)) 
         z_mi[:,:] = np.NaN
-        for i in range(self.num_landmarks):  
-            z_mi_dx_groundtruth = self.m_groundtruth[0][i] - self.ksi_groundtruth[0][0]
-            z_mi_dy_groundtruth = self.m_groundtruth[1][i] - self.ksi_groundtruth[1][0]
-            z_mi_dr_groundtruth = np.linalg.norm(np.array([z_mi_dx_groundtruth,z_mi_dy_groundtruth]))
-            z_mi[0][i] = z_mi_dr_groundtruth + np.max(np.array([-2.0*self.sigma_range, np.min(np.array([2.0*self.sigma_range, self.rng.standard_normal()*self.sigma_range]))]))
-            z_mi[1][i] = np.arctan2(z_mi_dy_groundtruth, z_mi_dx_groundtruth) - self.ksi_groundtruth[2][0] + np.max(np.array([-2.0*self.sigma_angle, np.min(np.array([2.0*self.sigma_angle, self.rng.standard_normal()*self.sigma_angle]))]))
+        for i in range(self.num_landmarks):   
+            z_mi_dxy_groundtruth = self.m_groundtruth[:,[i]] - self.ksi_groundtruth[0:1 + 1]
+            z_mi_dr_groundtruth = np.linalg.norm(z_mi_dxy_groundtruth) + np.max(np.array([-2.0*self.sigma_range, np.min(np.array([2.0*self.sigma_range, self.rng.normal(0.0, self.sigma_range)]))]))
+            z_mi_dtheta_groundtruth = np.arctan2(z_mi_dxy_groundtruth[1][0], z_mi_dxy_groundtruth[0][0]) - self.ksi_groundtruth[2][0] + np.max(np.array([-2.0*self.sigma_bearing, np.min(np.array([2.0*self.sigma_bearing, self.rng.normal(0.0, self.sigma_bearing)]))]))
+            #wrapToPi for bearing measurement
+            while z_mi_dtheta_groundtruth > np.pi:
+                z_mi_dtheta_groundtruth = z_mi_dtheta_groundtruth - 2.0*np.pi
+            while z_mi_dtheta_groundtruth <= -np.pi:
+                z_mi_dtheta_groundtruth = z_mi_dtheta_groundtruth + 2.0*np.pi
+            z_mi[:,[i]] = np.array([[z_mi_dr_groundtruth], [z_mi_dtheta_groundtruth]]) 
+
+        # draw groundtruth landmarks
+        for i in range(self.num_landmarks):
+            self.axes.scatter([self.m_groundtruth[0][i]], [self.m_groundtruth[1][i]], color="k")
+            #self.axes.plot([self.ksi_groundtruth[0][0], self.m_groundtruth[0][i]], [self.ksi_groundtruth[1][0], self.m_groundtruth[1][i]], color="k", linestyle="dashed", linewidth=1.0)
+            self.axes.plot([self.ksi_groundtruth[0][0], self.ksi_groundtruth[0][0] + z_mi[0][i]*np.cos(z_mi[1][i]+self.ksi_groundtruth[2][0])], [self.ksi_groundtruth[1][0], self.ksi_groundtruth[1][0] + z_mi[0][i]*np.sin(z_mi[1][i]+self.ksi_groundtruth[2][0])], color="k", linestyle="dashed", linewidth=1.0)
 
         # predicted estimate
         ksi_hat = np.copy(self.ksi_estim)
@@ -331,45 +344,69 @@ class AppForm(QMainWindow):
         ksi_hat[2][0] = ksi_hat[2][0] + self.timer_period * self.u_t[1][0]
 
         F_ksi = np.array([[1, 0, self.timer_period * -self.u_t[0][0]*np.sin(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period)], \
-                          [0, 1, self.timer_period * self.u_t[0][0]*np.cos(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period)], \
+                          [0, 1, self.timer_period *  self.u_t[0][0]*np.cos(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period)], \
                           [0, 0, 1]])
-        F_u = np.array([[self.timer_period * np.cos(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period), self.timer_period * self.u_t[0][0]*-0.5*self.timer_period*np.sin(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period)], \
-                        [self.timer_period * np.sin(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period), self.timer_period * self.u_t[0][0]*0.5*self.timer_period*np.cos(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period)], \
+        F_u = np.array([[self.timer_period * np.cos(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period), -(0.5*self.timer_period) * self.timer_period * self.u_t[0][0]*np.sin(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period)], \
+                        [self.timer_period * np.sin(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period),  (0.5*self.timer_period) * self.timer_period * self.u_t[0][0]*np.cos(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period)], \
                         [0                                                                                      , self.timer_period]])
-        S_ksi_hat = F_ksi.dot(self.S_estim[0:3,0:3]).dot(np.transpose(F_ksi)) + F_u.dot(self.Q).dot(np.transpose(F_u))
+        S_ksi_hat = F_ksi.dot(self.S_ksi_estim).dot(np.transpose(F_ksi)) + F_u.dot(self.Q).dot(np.transpose(F_u))
 
-        # form range bearing predictions and Jacobian entries
-        z_mi_hat = np.empty((2,self.num_landmarks)) 
-        z_mi_hat[:,:] = np.NaN
-        H_mi = np.empty((2 * self.num_landmarks, 5)) 
-        H_mi[:,:] = np.NaN
+        # Update pose covariance (auxilliary) variable
+        self.S_ksi_estim = np.copy(S_ksi_hat)
+
+        # form range bearing predictions and Jacobian entries, conduct Landmark i update
         for i in range(self.num_landmarks):  
-            z_mi_dx_hat = self.m_estim[0][i] - self.ksi_groundtruth[0][0]
-            z_mi_dy_hat = self.m_estim[1][i] - self.ksi_groundtruth[1][0]
-            z_mi_dr_hat = np.linalg.norm(np.array([z_mi_dx_hat,z_mi_dy_hat]))
-            z_mi_hat[0][i] = z_mi_dr_hat
-            z_mi_hat[1][i] = np.arctan2(z_mi_dy_hat, z_mi_dx_hat) - self.ksi_groundtruth[2][0]
-            
-            H_mi[2*i:2*i+1 + 1,:] = np.array([[-z_mi_dx_hat/z_mi_dr_hat    , -z_mi_dy_hat/z_mi_dr_hat     , 0 ,  z_mi_dx_hat/z_mi_dr_hat     , z_mi_dy_hat/z_mi_dr_hat], \
-                                              [z_mi_dy_hat/(z_mi_dr_hat**2), -z_mi_dx_hat/(z_mi_dr_hat**2), -1, -z_mi_dy_hat/(z_mi_dr_hat**2), z_mi_dx_hat/(z_mi_dr_hat**2)]]) 
+            z_mi_dxy_hat = self.m_estim[:,[i]] - ksi_hat[0:1 + 1]
+            z_mi_dr_hat = np.linalg.norm(z_mi_dxy_hat)
+            z_mi_dtheta_hat = np.arctan2(z_mi_dxy_hat[1][0], z_mi_dxy_hat[0][0]) - ksi_hat[2][0]
+            #wrapToPi for bearing delta (we don't do actual SE(2) math)
+            while z_mi_dtheta_hat > np.pi:
+                z_mi_dtheta_hat = z_mi_dtheta_hat - 2*np.pi
+            while z_mi_dtheta_hat <= -np.pi:
+                z_mi_dtheta_hat = z_mi_dtheta_hat + 2*np.pi
+            z_mi_hat = np.array([[z_mi_dr_hat], [z_mi_dtheta_hat]]) 
 
-        # Landmark i update
-        for i in range(self.num_landmarks):
+            # Check inverse distance to avoid ill-conditioning the Jacobian
+            if z_mi_dr_hat < 0.1:
+                continue
+
+            z_mi_dx_hat = z_mi_dxy_hat[0][0]
+            z_mi_dy_hat = z_mi_dxy_hat[1][0]
+            H_mi = np.array([[-z_mi_dx_hat/z_mi_dr_hat    , -z_mi_dy_hat/z_mi_dr_hat     ,  0,  z_mi_dx_hat/z_mi_dr_hat     , z_mi_dy_hat/z_mi_dr_hat], \
+                             [z_mi_dy_hat/(z_mi_dr_hat**2), -z_mi_dx_hat/(z_mi_dr_hat**2), -1, -z_mi_dy_hat/(z_mi_dr_hat**2), z_mi_dx_hat/(z_mi_dr_hat**2)]]) 
+
+            # Landmark i update
             S_hat = np.zeros((5,5))
             S_hat[0 : 2 + 1   , 0 : 2 + 1]   = np.copy(S_ksi_hat)
             S_hat[3 : 3+1 + 1 , 3 : 3+1 + 1] = np.copy(self.S_estim[3 + 2*i : 3 + 2*i+1 + 1 , 3 + 2*i : 3 + 2*i+1 + 1])
             S_hat[0 : 2 + 1   , 3 : 3+1 + 1] = np.copy(self.S_estim[0               : 2 + 1 , 3 + 2*i : 3+ 2*i+1 + 1])
             S_hat[3 : 3+1 + 1 , 0 : 2 + 1]   = np.copy(self.S_estim[3 + 2*i : 3 + 2*i+1 + 1 , 0       : 2 + 1])
-            K_mi = S_hat.dot(np.transpose(H_mi[2*i : 2*i+1 + 1 , :])).dot(np.linalg.inv(H_mi[2*i : 2*i+1 + 1 , :].dot(S_hat).dot(np.transpose(H_mi[2*i : 2*i+1 + 1 , :])) + self.R))
+            R_mi = self.R + H_mi.dot(S_hat).dot(np.transpose(H_mi))
+            K_mi = S_hat.dot(np.transpose(H_mi)).dot(np.linalg.pinv(R_mi))
 
             x_hat = np.concatenate((ksi_hat,
                                     self.m_estim[:,[i]]), axis=0)
-            x_upd = x_hat + K_mi.dot( z_mi[:,[i]] - z_mi_hat[:,[i]] )
 
-            S_upd = ( np.eye(3+2) - K_mi.dot(H_mi[2*i : 2*i+1 + 1 , :]) ).dot(S_hat);
+            z_err = z_mi[:,[i]] - z_mi_hat
+            #wrapToPi for bearing error (we don't do actual SE(2) math)
+            while z_err[1][0] > np.pi:
+                z_err[1][0] = z_err[1][0] - 2*np.pi
+            while z_err[1][0] <= -np.pi:
+                z_err[1][0] = z_err[1][0] + 2*np.pi
 
-            self.ksi_estim    = np.copy(x_upd[0   : 2 + 1,[0]])
-            self.m_estim[:,[i]] = np.copy(x_upd[2+1 : 2+2 + 1][:])
+            x_upd = x_hat + K_mi.dot( z_err )
+
+            S_upd = ( np.eye(3+2) - K_mi.dot(H_mi) ).dot(S_hat);
+
+            # Check condition number
+            cond_i = np.linalg.cond(S_upd[3 : 3+1 + 1 , 3 : 3+1 + 1])
+            #print(cond_i)
+            if cond_i > 5.0:
+                continue
+
+            self.ksi_estim    = np.copy(x_upd[0 : 2 + 1][:])
+
+            self.m_estim[:,[i]] = np.copy(x_upd[3 : 3+1 + 1][:])
             self.S_estim[0       : 2 + 1         , 0       : 2 + 1]         = np.copy(S_upd[0 : 2 + 1   , 0 : 2 + 1])
             self.S_estim[3 + 2*i : 3 + 2*i+1 + 1 , 3 + 2*i : 3 + 2*i+1 + 1] = np.copy(S_upd[3 : 3+1 + 1 , 3 : 3+1 + 1])
             self.S_estim[0       : 2 + 1         , 3 + 2*i : 3 + 2*i+1 + 1] = np.copy(S_upd[0 : 2 + 1   , 3 : 3+1 + 1])
@@ -403,7 +440,8 @@ class AppForm(QMainWindow):
         # draw estimate landmarks
         for i in range(self.num_landmarks):
             self.axes.scatter([self.m_estim[0][i]], [self.m_estim[1][i]], color="m")  
-            self.axes.plot([self.ksi_estim[0][0], self.m_estim[0][i]], [self.ksi_estim[1][0], self.m_estim[1][i]], color="m", linestyle="dashed", linewidth=1.0)
+            #self.axes.plot([self.ksi_estim[0][0], self.m_estim[0][i]], [self.ksi_estim[1][0], self.m_estim[1][i]], color="m", linestyle="dashed", linewidth=1.0)
+            self.axes.plot([self.ksi_estim[0][0], self.ksi_estim[0][0] + z_mi[0][i]*np.cos(z_mi[1][i]+self.ksi_estim[2][0])], [self.ksi_estim[1][0], self.ksi_estim[1][0] + z_mi[0][i]*np.sin(z_mi[1][i]+self.ksi_estim[2][0])], color="m", linestyle="dashed", linewidth=1.0)
 
         W, V = np.linalg.eig(self.S_ksi_estim)
         idx = W.argsort()[::-1]   
