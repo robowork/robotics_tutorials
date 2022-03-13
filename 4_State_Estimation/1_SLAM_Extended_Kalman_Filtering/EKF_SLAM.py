@@ -18,46 +18,6 @@ from itertools import product, combinations
 
 from numpy.random import default_rng
 
-class Point2D:  
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
-
-    # Returns point -to- point a distance
-    def distanceFromPoint(self, a):
-        return np.sqrt(((a.x-self.x)**2)+((a.y-self.y)**2))
-
-    # Returns point -to- line a-b distance
-    def distanceFromLine(self, a, b):
-        #np.abs((x2-x1)*(y1-y0)-(x1-x0)*(y2-y1))/np.sqrt(((x2-x1)**2)+((y2-y1)**2))
-        return np.abs((b.x-a.x)*(a.y-self.y)-(a.x-self.x)*(b.y-a.y))/np.sqrt(((b.x-a.x)**2)+((b.y-a.y)**2))
-    
-    # Checks if point is between a-b
-    def isBetween(self, a, b):
-        crossproduct = (self.y - a.y) * (b.x - a.x) - (self.x - a.x) * (b.y - a.y)
-
-        # compare versus epsilon for floating point values, or != 0 if using integers
-        if abs(crossproduct) > 1e-9:
-            return False
-
-        dotproduct = (self.x - a.x) * (b.x - a.x) + (self.y - a.y)*(b.y - a.y)
-        if dotproduct < 0:
-            return False
-
-        squaredlengthba = (b.x - a.x)*(b.x - a.x) + (b.y - a.y)*(b.y - a.y)
-        if dotproduct > squaredlengthba:
-            return False
-
-        return True
-
-    @staticmethod
-    def linesIntersection(a, b, c, d):
-        #intersect_x = ((x2*y1-x1*y2)*(x4-x3) - (x4*y3-x3*y4)*(x2-x1))/((x2-x1)*(y4-y3)-(x4-x3)*(y2-y1))
-        #intersect_y = ((x2*y1-x1*y2)*(y4-y3) - (x4*y3-x3*y4)*(y2-y1))/((x2-x1)*(y4-y3)-(x4-x3)*(y2-y1))
-        intersect_x = ((b.x*a.y-a.x*b.y)*(d.x-c.x) - (d.x*c.y-c.x*d.y)*(b.x-a.x))/((b.x-a.x)*(d.y-c.y)-(d.x-c.x)*(b.y-a.y))
-        intersect_y = ((b.x*a.y-a.x*b.y)*(d.y-c.y) - (d.x*c.y-c.x*d.y)*(b.y-a.y))/((b.x-a.x)*(d.y-c.y)-(d.x-c.x)*(b.y-a.y))
-        return Point2D(intersect_x, intersect_y)
-
 
 class DoubleSlider(QSlider):
 
@@ -148,8 +108,9 @@ class AppForm(QMainWindow):
         self.num_landmarks = len(np.transpose(self.m_groundtruth))
 
         self.m_estim = np.copy(self.m_groundtruth)
-        for i in range(len(self.m_groundtruth)):
-            self.m_estim[:,[i]] = 10.0 * self.m_groundtruth[:,[i]] / np.linalg.norm(self.m_groundtruth[:,[i]])  #initialize at 10m range
+        for i in range(self.num_landmarks):
+            #self.m_estim[:,[i]] = 10.0 * self.m_groundtruth[:,[i]] / np.linalg.norm(self.m_groundtruth[:,[i]])  #initialize at 10m range, no problem as we have range measurements
+            self.m_estim[:,[i]] = self.m_estim[:,[i]] + np.array([[self.rng.normal(0.0, 1.0)],[self.rng.normal(0.0, 1.0)]])  #initialize at +-1m sigma in xy
 
         ksi_0 = np.array([[0.0], \
                           [0.0], \
@@ -227,9 +188,9 @@ class AppForm(QMainWindow):
         if event.type() == QEvent.KeyPress:
             #print('KeyPress: %s [%r]' % (event.key(), source))
             if event.key() == Qt.Key_Up:  # up
-                self.u_t[0][0] = self.u_t[0][0] + 0.5
+                self.u_t[0][0] = self.u_t[0][0] + 0.25
             elif event.key() == Qt.Key_Down:  # down
-                self.u_t[0][0] = self.u_t[0][0] - 0.5
+                self.u_t[0][0] = self.u_t[0][0] - 0.25
             elif event.key() == Qt.Key_Left:  # left
                 self.u_t[1][0] = self.u_t[1][0] + 0.1
             elif event.key() == Qt.Key_Right:  # right
@@ -257,7 +218,7 @@ class AppForm(QMainWindow):
                 self.u_t[0][0] = 0
             else:
                 self.u_t[0][0] = self.u_t[0][0] - np.sign(self.u_t[0][0]) * 0.05
-        if np.abs(self.u_t[0][0]) > 0:
+        if np.abs(self.u_t[1][0]) > 0:
             if np.abs(self.u_t[1][0]) <= 0.01:
                 self.u_t[1][0] = 0
             else:
@@ -337,10 +298,16 @@ class AppForm(QMainWindow):
             #self.axes.plot([self.ksi_groundtruth[0][0], self.m_groundtruth[0][i]], [self.ksi_groundtruth[1][0], self.m_groundtruth[1][i]], color="k", linestyle="dashed", linewidth=1.0)
             self.axes.plot([self.ksi_groundtruth[0][0], self.ksi_groundtruth[0][0] + z_mi[0][i]*np.cos(z_mi[1][i]+self.ksi_groundtruth[2][0])], [self.ksi_groundtruth[1][0], self.ksi_groundtruth[1][0] + z_mi[0][i]*np.sin(z_mi[1][i]+self.ksi_groundtruth[2][0])], color="k", linestyle="dashed", linewidth=1.0)
 
+
+        ### Extended Kalman Filtering ###
+        #if self.fire_event == False:
+        #    self.canvas.draw()
+        #    return
+
         # predicted estimate
         ksi_hat = np.copy(self.ksi_estim)
-        ksi_hat[0][0] = ksi_hat[0][0] + self.timer_period * self.u_t[0][0]*np.cos(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period)  #(-self.u_t[0][0]/self.u_t[1][0])*np.sin(self.ksi_estim[2][0]) + (self.u_t[0][0]/self.u_t[1][0])*np.sin(self.ksi_estim[2][0] + self.u_t[1][0]*self.timer_period);
-        ksi_hat[1][0] = ksi_hat[1][0] + self.timer_period * self.u_t[0][0]*np.sin(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period)  #(self.u_t[0][0]/self.u_t[1][0])*np.cos(self.ksi_estim[2][0]) + (-self.u_t[0][0]/self.u_t[1][0])*np.cos(self.ksi_estim[2][0] + self.u_t[1][0]*self.timer_period);
+        ksi_hat[0][0] = ksi_hat[0][0] + self.timer_period * self.u_t[0][0]*np.cos(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period)
+        ksi_hat[1][0] = ksi_hat[1][0] + self.timer_period * self.u_t[0][0]*np.sin(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period)
         ksi_hat[2][0] = ksi_hat[2][0] + self.timer_period * self.u_t[1][0]
 
         F_ksi = np.array([[1, 0, self.timer_period * -self.u_t[0][0]*np.sin(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period)], \
@@ -350,6 +317,12 @@ class AppForm(QMainWindow):
                         [self.timer_period * np.sin(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period),  (0.5*self.timer_period) * self.timer_period * self.u_t[0][0]*np.cos(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period)], \
                         [0                                                                                      , self.timer_period]])
         S_ksi_hat = F_ksi.dot(self.S_ksi_estim).dot(np.transpose(F_ksi)) + F_u.dot(self.Q).dot(np.transpose(F_u))
+
+        # Update pose estimate
+        self.ksi_estim   = np.copy(ksi_hat)
+
+        # Update pose - landmarks covariance
+        self.S_estim[0 : 2 + 1, 0 : 2 + 1] = np.copy(S_ksi_hat)
 
         # Update pose covariance (auxilliary) variable
         self.S_ksi_estim = np.copy(S_ksi_hat)
@@ -404,16 +377,20 @@ class AppForm(QMainWindow):
             if cond_i > 5.0:
                 continue
 
+            # Update pose estimate
             self.ksi_estim    = np.copy(x_upd[0 : 2 + 1][:])
 
+            # Update landmark estimate
             self.m_estim[:,[i]] = np.copy(x_upd[3 : 3+1 + 1][:])
+
+            # Update pose - landmarks covariance
             self.S_estim[0       : 2 + 1         , 0       : 2 + 1]         = np.copy(S_upd[0 : 2 + 1   , 0 : 2 + 1])
             self.S_estim[3 + 2*i : 3 + 2*i+1 + 1 , 3 + 2*i : 3 + 2*i+1 + 1] = np.copy(S_upd[3 : 3+1 + 1 , 3 : 3+1 + 1])
             self.S_estim[0       : 2 + 1         , 3 + 2*i : 3 + 2*i+1 + 1] = np.copy(S_upd[0 : 2 + 1   , 3 : 3+1 + 1])
             self.S_estim[3 + 2*i : 3 + 2*i+1 + 1 , 0       : 2 + 1]         = np.copy(S_upd[3 : 3+1 + 1 , 0 : 2 + 1])
 
         # Update pose covariance (auxilliary) variable
-        self.S_ksi_estim = np.copy(self.S_estim[0:2 + 1,0:2 + 1])
+        self.S_ksi_estim = np.copy(self.S_estim[0 : 2 + 1 , 0 : 2 + 1])
 
         # draw estimate
         T_SB_estim = np.concatenate((np.concatenate((axangles.axangle2mat(np.array([0, 0, 1]), self.ksi_estim[2][0]), np.array([[self.ksi_estim[0][0]], [self.ksi_estim[1][0]], [0]])), axis=1),
@@ -443,7 +420,7 @@ class AppForm(QMainWindow):
             #self.axes.plot([self.ksi_estim[0][0], self.m_estim[0][i]], [self.ksi_estim[1][0], self.m_estim[1][i]], color="m", linestyle="dashed", linewidth=1.0)
             self.axes.plot([self.ksi_estim[0][0], self.ksi_estim[0][0] + z_mi[0][i]*np.cos(z_mi[1][i]+self.ksi_estim[2][0])], [self.ksi_estim[1][0], self.ksi_estim[1][0] + z_mi[0][i]*np.sin(z_mi[1][i]+self.ksi_estim[2][0])], color="m", linestyle="dashed", linewidth=1.0)
 
-        W, V = np.linalg.eig(self.S_ksi_estim)
+        W, V = np.linalg.eig(self.S_ksi_estim[0 : 2 + 1 , 0 : 2 +1])
         idx = W.argsort()[::-1]   
         W = W[idx]
         V = V[:,idx]
@@ -503,9 +480,6 @@ class AppForm(QMainWindow):
         self.m_groundtruth[1][4] = float(m_4_groundtruth[1])
         #print(self.m_groundtruth)
 
-        self.val_vel = self.sld_vel.value()
-        self.val_lookahead = self.sld_lookahead.value()
-
         #self.on_draw()
 
     def create_main_frame(self):
@@ -546,44 +520,12 @@ class AppForm(QMainWindow):
         self.m_4_groundtruth.setFixedWidth(65)
         self.connect(self.m_4_groundtruth, SIGNAL('editingFinished()'), self.on_update_values)
 
-        self.sld_vel = DoubleSlider(Qt.Horizontal)
-        self.sld_vel.setMinimum(0.0)
-        self.sld_vel.setMaximum(2.5)
-        self.sld_vel.setValue(0.0)
-        self.sld_vel.setTracking(True)
-        self.sld_vel.setTickPosition(QSlider.TicksBelow)
-        self.connect(self.sld_vel, SIGNAL('valueChanged(int)'), self.on_update_values)
-
-        self.sld_lookahead = DoubleSlider(Qt.Horizontal)
-        self.sld_lookahead.setMinimum(0.25)
-        self.sld_lookahead.setMaximum(10.0)
-        self.sld_lookahead.setValue(5.0)
-        self.sld_lookahead.setTracking(True)
-        self.sld_lookahead.setTickPosition(QSlider.TicksBelow)
-        self.connect(self.sld_lookahead, SIGNAL('valueChanged(int)'), self.on_update_values)
-
-        # self.rb_g0 = QCheckBox('Guidance #1')
-        # self.rb_g0.setChecked(True)
-        # self.connect(self.rb_g0, SIGNAL('stateChanged(int)'), self.on_update_values)
-
-        hbox_vel = QHBoxLayout()
-        for w in [ QLabel('vel'), QLabel('0'), self.sld_vel, QLabel('2.5')]:
-            hbox_vel.addWidget(w)
-            hbox_vel.setAlignment(w, Qt.AlignVCenter)
-
-        hbox_lookahead = QHBoxLayout()
-        for w in [ QLabel('lookahead'), QLabel('0.25'), self.sld_lookahead, QLabel('10')]:
-            hbox_lookahead.addWidget(w)
-            hbox_lookahead.setAlignment(w, Qt.AlignVCenter)
-
         hbox_rb = QHBoxLayout()
         for w in [ QLabel('landmarks x,y'), QLabel('#1'), self.m_0_groundtruth, QLabel('#2'), self.m_1_groundtruth, QLabel('#3'), self.m_2_groundtruth, QLabel('#4'), self.m_3_groundtruth, QLabel('#5'), self.m_4_groundtruth]:
             hbox_rb.addWidget(w)
             hbox_rb.setAlignment(w, Qt.AlignVCenter)
 
         vbox = QVBoxLayout()
-        vbox.addLayout(hbox_vel)
-        vbox.addLayout(hbox_lookahead)
         vbox.addLayout(hbox_rb)
         vbox.addWidget(self.canvas)
         vbox.addWidget(self.mpl_toolbar)
