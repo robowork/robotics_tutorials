@@ -297,13 +297,13 @@ class AppForm(QMainWindow):
         self.quiver_By = T_SB.dot(np.concatenate((self.quiver_Sy, np.array([[1]])), axis=0))
         self.quiver_Bz = T_SB.dot(np.concatenate((self.quiver_Sz, np.array([[1]])), axis=0))
 
-        scale_full = 1.0
-        self.axes.quiver(self.quiver_Bp[0], self.quiver_Bp[1], scale_full*(self.quiver_Bx[0]-self.quiver_Bp[0]), scale_full*(self.quiver_Bx[1]-self.quiver_Bp[1]), color=['r'], scale=25, width=0.005)
-        self.axes.quiver(self.quiver_Bp[0], self.quiver_Bp[1], scale_full*(self.quiver_By[0]-self.quiver_Bp[0]), scale_full*(self.quiver_By[1]-self.quiver_Bp[1]), color=['g'], scale=25, width=0.005)
-        self.axes.set_xlim(self.quiver_Bp[0]-10.0, self.quiver_Bp[0]+10.0)
-        self.axes.set_ylim(self.quiver_Bp[1]-10.0, self.quiver_Bp[1]+10.0)
-        #self.axes.set_xlim(-25.0, 25.0)
-        #self.axes.set_ylim(-25.0, 25.0)
+        scale = 15.0
+        self.axes.quiver(self.quiver_Bp[0], self.quiver_Bp[1], 1.0*(self.quiver_Bx[0]-self.quiver_Bp[0]), 1.0*(self.quiver_Bx[1]-self.quiver_Bp[1]), color=['r'], scale=scale, width=0.005)
+        self.axes.quiver(self.quiver_Bp[0], self.quiver_Bp[1], 1.0*(self.quiver_By[0]-self.quiver_Bp[0]), 1.0*(self.quiver_By[1]-self.quiver_Bp[1]), color=['g'], scale=scale, width=0.005)
+        self.axes.set_xlim(self.quiver_Bp[0]-scale, self.quiver_Bp[0]+scale)
+        self.axes.set_ylim(self.quiver_Bp[1]-scale, self.quiver_Bp[1]+scale)
+        #self.axes.set_xlim(-scale, scale)
+        #self.axes.set_ylim(-scale, scale)
 
         # draw groundtruth body
         for vertex_pair in self.body_vertices:
