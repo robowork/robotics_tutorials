@@ -140,7 +140,6 @@ class AppForm(QMainWindow):
                           [np.deg2rad(0.0)]])  # [x, y, theta]
         self.ksi_groundtruth = np.copy(ksi_0)
         self.ksi_estim = np.copy(ksi_0)
-        self.ksi_hat_previous = np.copy(ksi_0)
 
         self.u_t = np.array([[0.0], \
                              [0.0]])  # input forward and turn velocity
@@ -344,7 +343,7 @@ class AppForm(QMainWindow):
         ksi_hat[1][0] = ksi_hat[1][0] + self.timer_period * self.u_t[0][0]*np.sin(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period)
         ksi_hat[2][0] = ksi_hat[2][0] + self.timer_period * self.u_t[1][0]
 
-        ksi_hat_linpoint_FEJ = np.copy(self.ksi_hat_previous)
+        ksi_hat_linpoint_FEJ = np.copy(self.ksi_estim)
         F_ksi = np.array([[1, 0, self.timer_period * -self.u_t[0][0]*np.sin(ksi_hat_linpoint_FEJ[2][0] + 0.5*self.u_t[1][0]*self.timer_period)], \
                           [0, 1, self.timer_period *  self.u_t[0][0]*np.cos(ksi_hat_linpoint_FEJ[2][0] + 0.5*self.u_t[1][0]*self.timer_period)], \
                           [0, 0, 1]])
@@ -575,9 +574,6 @@ class AppForm(QMainWindow):
                 self.S_estim[:                       , 3 + 2*i : 3 + 2*i+1 + 1] = np.zeros((3+2*self.num_landmarks, 2))
                 self.S_estim[3 + 2*i : 3 + 2*i+1 + 1 , :]                       = np.zeros((2, 3+2*self.num_landmarks))
                 self.S_estim[3 + 2*i : 3 + 2*i+1 + 1 , 3 + 2*i : 3 + 2*i+1 + 1] = self.S_m_new
-
-        # cache required values for next-iteration use (e.g. as previous hat robot pose estimate)
-        self.ksi_hat_previous  = np.copy(ksi_hat)
 
         self.canvas.draw()
 
