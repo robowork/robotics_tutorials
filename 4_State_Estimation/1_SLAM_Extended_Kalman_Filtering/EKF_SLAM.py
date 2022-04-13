@@ -1,5 +1,6 @@
 import sys, os, random
 import numpy as np
+import time
 
 from transforms3d import *  #supersedes deprecated transformations.py
 
@@ -63,6 +64,16 @@ class DoubleSlider(QSlider):
         return self._max_value
 
 
+def randomSign():
+    return 1 if random.random() < 0.5 else -1
+
+def wrapToPi(radians):
+    while radians >= np.pi:
+        radians = radians - 2.0*np.pi
+    while radians < -np.pi:
+        radians = radians + 2.0*np.pi
+    return radians
+
 def setupBody(axles_distance, half_length, half_width, half_height):
     body_vertices = list()
     body_vertices.append([[-half_length+axles_distance/2, -half_width, -half_height], [-half_length+axles_distance/2, -half_width, half_height]])
@@ -79,10 +90,33 @@ def setupBody(axles_distance, half_length, half_width, half_height):
     body_vertices.append([[half_length+axles_distance/2, half_width, -half_height], [half_length+axles_distance/2, half_width, half_height]])
     return body_vertices
 
+def colormap(index):
+    if index > 0:
+        selected_color = "m"
+    elif index == 0:
+        selected_color = "k"
+    elif index == -1:
+        selected_color = "b"
+    elif index == -2:
+        selected_color = "y"
+    elif index == -3:
+        selected_color = "r" 
+    return selected_color
+
 class AppForm(QMainWindow):
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
         self.setWindowTitle('Non-Holonomic Robot')
+
+        self.m_groundtruth = np.transpose(np.array([[3.0, 2.0], \
+                                                   [5.0, -1.0], \
+                                                   [-5.0, -1.0], \
+                                                   [-4.0, -5.0], \
+                                                   [-3.0, 5.0]]))
+        self.num_landmarks = len(np.transpose(self.m_groundtruth))
+        self.landmarks_quality_history = [-1] * self.num_landmarks  # negative: uninintialized , 0-threshold: valid , >threshold: replace
+        self.landmarks_quality_counter_threshold = 5
+        self.H_mi_linpoint_FEJ = [np.NaN] * self.num_landmarks
 
         self.create_menu()
         self.create_main_frame()
@@ -94,35 +128,29 @@ class AppForm(QMainWindow):
 
         self.rng = default_rng()
 
-        self.m_groundtruth = np.transpose(np.array([[3.0, 2.0], \
-                                                   [5.0, -1.0], \
-                                                   [-5.0, -1.0], \
-                                                   [-4.0, -5.0], \
-                                                   [-3.0, 5.0]]))
-        self.m_0_groundtruth.setText(str(self.m_groundtruth[0][0])+","+str(self.m_groundtruth[1][0]))
-        self.m_1_groundtruth.setText(str(self.m_groundtruth[0][1])+","+str(self.m_groundtruth[1][1]))
-        self.m_2_groundtruth.setText(str(self.m_groundtruth[0][2])+","+str(self.m_groundtruth[1][2]))
-        self.m_3_groundtruth.setText(str(self.m_groundtruth[0][3])+","+str(self.m_groundtruth[1][3]))
-        self.m_4_groundtruth.setText(str(self.m_groundtruth[0][4])+","+str(self.m_groundtruth[1][4]))
-
-        self.num_landmarks = len(np.transpose(self.m_groundtruth))
+        for i in range(self.num_landmarks): 
+            self.m_groundtruth_text[i].setText(str(self.m_groundtruth[0][i])+","+str(self.m_groundtruth[1][i]))
 
         self.m_estim = np.copy(self.m_groundtruth)
         for i in range(self.num_landmarks):
-            #self.m_estim[:,[i]] = 10.0 * self.m_groundtruth[:,[i]] / np.linalg.norm(self.m_groundtruth[:,[i]])  #initialize at 10m range, no problem as we have range measurements
-            self.m_estim[:,[i]] = self.m_estim[:,[i]] + np.array([[self.rng.normal(0.0, 1.0)],[self.rng.normal(0.0, 1.0)]])  #initialize at +-1m sigma in xy
+            self.m_estim[:,[i]] = self.m_estim[:,[i]] + np.array([[self.rng.normal(0.0, 0.5)],[self.rng.normal(0.0, 0.5)]])  #initialize at a sigma if +-0.5m in xy
 
         ksi_0 = np.array([[0.0], \
                           [0.0], \
                           [np.deg2rad(0.0)]])  # [x, y, theta]
-        self.ksi_groundtruth = ksi_0
-        self.ksi_estim = ksi_0
+        self.ksi_groundtruth = np.copy(ksi_0)
+        self.ksi_estim = np.copy(ksi_0)
+        self.ksi_hat_previous = np.copy(ksi_0)
 
         self.u_t = np.array([[0.0], \
                              [0.0]])  # input forward and turn velocity
 
         self.z_mi = np.empty((2,self.num_landmarks))  # measurements vector for all landmarks
         self.z_mi[:,:] = np.NaN
+
+        for i in range(self.num_landmarks):
+            self.landmarks_quality_history[i] = -1
+            self.H_mi_linpoint_FEJ[i] = np.copy(self.m_estim[:,[i]])
 
         self.timer_period = 0.10
         self.timer_value = 0
@@ -144,8 +172,8 @@ class AppForm(QMainWindow):
         self.sigma_Rwheel = 0.10  # wheel velocity
         self.sigma_Lwheel = 0.10  # wheel velocity
 
-        self.sigma_v = np.sqrt( (0.5)*((self.sigma_Rwheel)**2 + (self.sigma_Lwheel)**2)*(0.5) )  # forward velocity
-        self.sigma_w = np.sqrt( (0.5/self.half_width)*((self.sigma_Rwheel)**2 + (-self.sigma_Lwheel)**2)*(0.5/self.half_width) )  # rotational velocity
+        self.sigma_v = np.sqrt( ((0.5)**2) * ((self.sigma_Rwheel)**2) + ((0.5)**2) * ((self.sigma_Lwheel)**2) )  # forward velocity
+        self.sigma_w = np.sqrt( ((1.0/(2*self.half_width))**2) * ((self.sigma_Rwheel)**2) + ((-1.0/(2*self.half_width))**2) * ((self.sigma_Lwheel)**2) )  # rotational velocity
 
         self.sigma_range = 1.0  # landmark relative ranging # static,if changing then for every pose-landmark estimate based on range
         self.sigma_bearing = np.deg2rad(5.0)  # landmark relative bearing # static,if changing then for every pose-landmark estimate based on range
@@ -155,12 +183,21 @@ class AppForm(QMainWindow):
         self.R = 1.0 * np.array([[self.sigma_range**2,                     0], \
                                  [0,                   self.sigma_bearing**2]])
 
-        self.S_ksi_estim = 1.0 * np.array([[0.01**2,       0,                  0], \
-                                           [0,       0.01**2,                  0], \
-                                           [0,             0, np.deg2rad(0.1)**2]])
-        self.S_m_new = 1.0 * np.array([[0.5**2,      0], \
-                                       [0,      0.5**2]])
-        self.S_estim = np.concatenate((np.concatenate((self.S_ksi_estim, np.zeros((3, self.m_groundtruth.size))), axis=1), \
+        S_ksi_estim = 1.0 * np.array([[0.00**2,       0,                  0], \
+                                      [0,       0.00**2,                  0], \
+                                      [0,             0, np.deg2rad(0.0)**2]])
+        self.W_S_ksi_trans_init, self.V_S_ksi_trans_init = np.linalg.eig(S_ksi_estim[0 : 1 + 1 , 0 : 1 +1])
+        idx_S_ksi_trans_init = self.W_S_ksi_trans_init.argsort()[::-1]   
+        self.W_S_ksi_trans_init = self.W_S_ksi_trans_init[idx_S_ksi_trans_init]
+        self.V_S_ksi_trans_init = self.V_S_ksi_trans_init[:,idx_S_ksi_trans_init]
+        self.W_S_ksi_rot_init, self.V_S_ksi_rot_init = np.linalg.eig(S_ksi_estim[2 : 2 + 1 , 2 : 2 +1])
+        idx_S_ksi_rot_init = self.W_S_ksi_rot_init.argsort()[::-1]   
+        self.W_S_ksi_rot_init = self.W_S_ksi_rot_init[idx_S_ksi_rot_init]
+        self.V_S_ksi_rot_init = self.V_S_ksi_rot_init[:,idx_S_ksi_rot_init]
+
+        self.S_m_new = 1.0 * np.array([[10000.0**2,          0], \
+                                       [0,          10000.0**2]])
+        self.S_estim = np.concatenate((np.concatenate((S_ksi_estim, np.zeros((3, self.m_groundtruth.size))), axis=1), \
                                        np.concatenate((np.transpose(np.zeros((3, self.m_groundtruth.size))), np.kron(np.eye(self.num_landmarks,dtype=float),self.S_m_new)), axis=1)), axis=0)
 
         # Space Frame / origin
@@ -196,7 +233,7 @@ class AppForm(QMainWindow):
             elif event.key() == Qt.Key_Right:  # right
                 self.u_t[1][0] = self.u_t[1][0] - 0.1
             elif event.key() == Qt.Key_Space:  # spacebar
-                self.fire_event = True
+                self.fire_event = not self.fire_event
 
         return super(AppForm, self).eventFilter(source, event)
 
@@ -230,7 +267,7 @@ class AppForm(QMainWindow):
 
         # calculate Body Frame kinematics based on joint-space velocities
         u_vel = (0.5)*(u_R + u_L);
-        u_rot = (0.5/self.half_width)*(u_R - u_L)
+        u_rot = (1.0/(2*self.half_width))*(u_R - u_L)
 
         x_dot = u_vel * np.cos( self.ksi_groundtruth[2][0] )
         y_dot = u_vel * np.sin( self.ksi_groundtruth[2][0] )
@@ -241,10 +278,7 @@ class AppForm(QMainWindow):
         self.ksi_groundtruth[1][0] = self.ksi_groundtruth[1][0] + y_dot * self.timer_period
         self.ksi_groundtruth[2][0] = self.ksi_groundtruth[2][0] + theta_dot * self.timer_period
         #wrapToPi for theta_groundtruth
-        #while self.ksi_groundtruth[2][0] > 2*np.pi:
-        #    self.ksi_groundtruth[2][0] = self.ksi_groundtruth[2][0] - np.pi
-        #while self.ksi_groundtruth[2][0] <= -2*np.pi:
-        #    self.ksi_groundtruth[2][0] = self.ksi_groundtruth[2][0] + np.pi
+        #self.ksi_groundtruth[2][0] = wrapToPi(self.ksi_groundtruth[2][0])
 
         #print(self.timer_value)
 
@@ -264,10 +298,12 @@ class AppForm(QMainWindow):
         self.quiver_Bz = T_SB.dot(np.concatenate((self.quiver_Sz, np.array([[1]])), axis=0))
 
         scale_full = 1.0
-        self.axes.quiver(self.quiver_Bp[0], self.quiver_Bp[1], scale_full*(self.quiver_Bx[0]-self.quiver_Bp[0]), scale_full*(self.quiver_Bx[1]-self.quiver_Bp[1]), color=['r'])
-        self.axes.quiver(self.quiver_Bp[0], self.quiver_Bp[1], scale_full*(self.quiver_By[0]-self.quiver_Bp[0]), scale_full*(self.quiver_By[1]-self.quiver_Bp[1]), color=['g'])
-        self.axes.set_xlim(-10.0, 10.0)
-        self.axes.set_ylim(-10.0, 10.0)
+        self.axes.quiver(self.quiver_Bp[0], self.quiver_Bp[1], scale_full*(self.quiver_Bx[0]-self.quiver_Bp[0]), scale_full*(self.quiver_Bx[1]-self.quiver_Bp[1]), color=['r'], scale=25, width=0.005)
+        self.axes.quiver(self.quiver_Bp[0], self.quiver_Bp[1], scale_full*(self.quiver_By[0]-self.quiver_Bp[0]), scale_full*(self.quiver_By[1]-self.quiver_Bp[1]), color=['g'], scale=25, width=0.005)
+        self.axes.set_xlim(self.quiver_Bp[0]-10.0, self.quiver_Bp[0]+10.0)
+        self.axes.set_ylim(self.quiver_Bp[1]-10.0, self.quiver_Bp[1]+10.0)
+        #self.axes.set_xlim(-25.0, 25.0)
+        #self.axes.set_ylim(-25.0, 25.0)
 
         # draw groundtruth body
         for vertex_pair in self.body_vertices:
@@ -286,10 +322,7 @@ class AppForm(QMainWindow):
             z_mi_dr_groundtruth = np.linalg.norm(z_mi_dxy_groundtruth) + np.max(np.array([-2.0*self.sigma_range, np.min(np.array([2.0*self.sigma_range, self.rng.normal(0.0, self.sigma_range)]))]))
             z_mi_dtheta_groundtruth = np.arctan2(z_mi_dxy_groundtruth[1][0], z_mi_dxy_groundtruth[0][0]) - self.ksi_groundtruth[2][0] + np.max(np.array([-2.0*self.sigma_bearing, np.min(np.array([2.0*self.sigma_bearing, self.rng.normal(0.0, self.sigma_bearing)]))]))
             #wrapToPi for bearing measurement
-            while z_mi_dtheta_groundtruth > np.pi:
-                z_mi_dtheta_groundtruth = z_mi_dtheta_groundtruth - 2.0*np.pi
-            while z_mi_dtheta_groundtruth <= -np.pi:
-                z_mi_dtheta_groundtruth = z_mi_dtheta_groundtruth + 2.0*np.pi
+            z_mi_dtheta_groundtruth = wrapToPi(z_mi_dtheta_groundtruth)
             z_mi[:,[i]] = np.array([[z_mi_dr_groundtruth], [z_mi_dtheta_groundtruth]]) 
 
         # draw groundtruth landmarks
@@ -303,6 +336,7 @@ class AppForm(QMainWindow):
         #if self.fire_event == False:
         #    self.canvas.draw()
         #    return
+        print("EKF begin")
 
         # predicted estimate
         ksi_hat = np.copy(self.ksi_estim)
@@ -310,87 +344,133 @@ class AppForm(QMainWindow):
         ksi_hat[1][0] = ksi_hat[1][0] + self.timer_period * self.u_t[0][0]*np.sin(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period)
         ksi_hat[2][0] = ksi_hat[2][0] + self.timer_period * self.u_t[1][0]
 
-        F_ksi = np.array([[1, 0, self.timer_period * -self.u_t[0][0]*np.sin(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period)], \
-                          [0, 1, self.timer_period *  self.u_t[0][0]*np.cos(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period)], \
+        ksi_hat_linpoint_FEJ = np.copy(self.ksi_hat_previous)
+        F_ksi = np.array([[1, 0, self.timer_period * -self.u_t[0][0]*np.sin(ksi_hat_linpoint_FEJ[2][0] + 0.5*self.u_t[1][0]*self.timer_period)], \
+                          [0, 1, self.timer_period *  self.u_t[0][0]*np.cos(ksi_hat_linpoint_FEJ[2][0] + 0.5*self.u_t[1][0]*self.timer_period)], \
                           [0, 0, 1]])
-        F_u = np.array([[self.timer_period * np.cos(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period), -(0.5*self.timer_period) * self.timer_period * self.u_t[0][0]*np.sin(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period)], \
-                        [self.timer_period * np.sin(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period),  (0.5*self.timer_period) * self.timer_period * self.u_t[0][0]*np.cos(self.ksi_estim[2][0] + 0.5*self.u_t[1][0]*self.timer_period)], \
-                        [0                                                                                      , self.timer_period]])
-        S_ksi_hat = F_ksi.dot(self.S_ksi_estim).dot(np.transpose(F_ksi)) + F_u.dot(self.Q).dot(np.transpose(F_u))
 
-        # Update pose estimate
-        self.ksi_estim   = np.copy(ksi_hat)
+        F_u = np.array([[self.timer_period * np.cos(ksi_hat_linpoint_FEJ[2][0] + 0.5*self.u_t[1][0]*self.timer_period), -(0.5*self.timer_period) * self.timer_period * self.u_t[0][0]*np.sin(ksi_hat_linpoint_FEJ[2][0] + 0.5*self.u_t[1][0]*self.timer_period)], \
+                        [self.timer_period * np.sin(ksi_hat_linpoint_FEJ[2][0] + 0.5*self.u_t[1][0]*self.timer_period),  (0.5*self.timer_period) * self.timer_period * self.u_t[0][0]*np.cos(ksi_hat_linpoint_FEJ[2][0] + 0.5*self.u_t[1][0]*self.timer_period)], \
+                        [0                                                                                            ,  self.timer_period]])
 
-        # Update pose - landmarks covariance
-        self.S_estim[0 : 2 + 1, 0 : 2 + 1] = np.copy(S_ksi_hat)
+        Fksi_Sksiksi_FksiT = F_ksi.dot(self.S_estim[0 : 2 + 1, 0 : 2 + 1]).dot(np.transpose(F_ksi)) + F_u.dot(self.Q).dot(np.transpose(F_u))
+        Fksi_Sksim = F_ksi.dot(self.S_estim[0 : 2 + 1, 3 + 2*0 : 3+ 2*self.num_landmarks+1 + 1])
 
-        # Update pose covariance (auxilliary) variable
-        self.S_ksi_estim = np.copy(S_ksi_hat)
+        # update pose estimate
+        self.ksi_estim = np.copy(ksi_hat)
 
+        # update pose - landmarks covariance
+        self.S_estim[0 : 2 + 1                               , 0 : 2 + 1]                               = Fksi_Sksiksi_FksiT
+        self.S_estim[0 : 2 + 1                               , 3 + 2*0 : 3+ 2*self.num_landmarks+1 + 1] = Fksi_Sksim
+        self.S_estim[3 + 2*0 : 3+ 2*self.num_landmarks+1 + 1 , 0 : 2 + 1]                               = np.transpose(Fksi_Sksim)
+
+        # # ARTIFICIAL COVARIANCE INFLATION
+        # W_trans, V_trans = np.linalg.eig(self.S_estim[0 : 1 + 1 , 0 : 1 +1])
+        # idx_trans = W_trans.argsort()[::-1]   
+        # W_trans = W_trans[idx_trans]
+        # V_trans = V_trans[:,idx_trans]
+        # if W_trans[1]<self.W_S_ksi_trans_init[1]:
+        #     W_trans_inflated = np.copy(W_trans) 
+        #     W_trans_inflated[1] = self.W_S_ksi_trans_init[1]
+        #     if W_trans[0]<self.W_S_ksi_trans_init[0]:
+        #         W_trans_inflated[0] = self.W_S_ksi_trans_init[0]
+        #     D_trans = np.diag(W_trans_inflated)    
+        #     self.S_estim[0 : 1 + 1, 0 : 1 + 1] = V_trans.dot(D_trans).dot(np.linalg.pinv(V_trans))
+
+        landmarks_quality = [0] * self.num_landmarks
         # form range bearing predictions and Jacobian entries, conduct Landmark i update
         for i in range(self.num_landmarks):  
-            z_mi_dxy_hat = self.m_estim[:,[i]] - ksi_hat[0:1 + 1]
+            # Error
+            z_mi_dxy_hat = self.m_estim[:,[i]] - self.ksi_estim[0 : 1 + 1,:] 
             z_mi_dr_hat = np.linalg.norm(z_mi_dxy_hat)
-            z_mi_dtheta_hat = np.arctan2(z_mi_dxy_hat[1][0], z_mi_dxy_hat[0][0]) - ksi_hat[2][0]
+            z_mi_dtheta_hat = np.arctan2(z_mi_dxy_hat[1][0], z_mi_dxy_hat[0][0]) - self.ksi_estim[2][0]
             #wrapToPi for bearing delta (we don't do actual SE(2) math)
-            while z_mi_dtheta_hat > np.pi:
-                z_mi_dtheta_hat = z_mi_dtheta_hat - 2*np.pi
-            while z_mi_dtheta_hat <= -np.pi:
-                z_mi_dtheta_hat = z_mi_dtheta_hat + 2*np.pi
+            z_mi_dtheta_hat = wrapToPi(z_mi_dtheta_hat)
             z_mi_hat = np.array([[z_mi_dr_hat], [z_mi_dtheta_hat]]) 
 
-            # Check inverse distance to avoid ill-conditioning the Jacobian
-            if z_mi_dr_hat < 0.1:
+            # Check distance
+            if z_mi_dr_hat > 15.0:
+                print(i, " dist")
+                landmarks_quality[i] = -1
+                if self.landmarks_quality_history[i] >= 0:
+                    self.landmarks_quality_history[i] = self.landmarks_quality_history[i] + 1
                 continue
 
-            z_mi_dx_hat = z_mi_dxy_hat[0][0]
-            z_mi_dy_hat = z_mi_dxy_hat[1][0]
-            H_mi = np.array([[-z_mi_dx_hat/z_mi_dr_hat    , -z_mi_dy_hat/z_mi_dr_hat     ,  0,  z_mi_dx_hat/z_mi_dr_hat     , z_mi_dy_hat/z_mi_dr_hat], \
-                             [z_mi_dy_hat/(z_mi_dr_hat**2), -z_mi_dx_hat/(z_mi_dr_hat**2), -1, -z_mi_dy_hat/(z_mi_dr_hat**2), z_mi_dx_hat/(z_mi_dr_hat**2)]]) 
+            # First-Estimate Jacobian method
+            z_mi_dxy_hat_FEJ = self.H_mi_linpoint_FEJ[i] - ksi_hat_linpoint_FEJ[0:1 + 1] 
+            z_mi_dr_hat_FEJ = np.linalg.norm(z_mi_dxy_hat_FEJ)
+            z_mi_dtheta_hat_FEJ = np.arctan2(z_mi_dxy_hat_FEJ[1][0], z_mi_dxy_hat_FEJ[0][0]) - ksi_hat_linpoint_FEJ[2][0]
+            #wrapToPi for bearing delta (we don't do actual SE(2) math)
+            z_mi_dtheta_hat_FEJ = wrapToPi(z_mi_dtheta_hat_FEJ)
+            z_mi_hat_FEJ = np.array([[z_mi_dr_hat_FEJ], [z_mi_dtheta_hat_FEJ]]) 
 
-            # Landmark i update
-            S_hat = np.zeros((5,5))
-            S_hat[0 : 2 + 1   , 0 : 2 + 1]   = np.copy(S_ksi_hat)
-            S_hat[3 : 3+1 + 1 , 3 : 3+1 + 1] = np.copy(self.S_estim[3 + 2*i : 3 + 2*i+1 + 1 , 3 + 2*i : 3 + 2*i+1 + 1])
-            S_hat[0 : 2 + 1   , 3 : 3+1 + 1] = np.copy(self.S_estim[0               : 2 + 1 , 3 + 2*i : 3+ 2*i+1 + 1])
-            S_hat[3 : 3+1 + 1 , 0 : 2 + 1]   = np.copy(self.S_estim[3 + 2*i : 3 + 2*i+1 + 1 , 0       : 2 + 1])
-            R_mi = self.R + H_mi.dot(S_hat).dot(np.transpose(H_mi))
-            K_mi = S_hat.dot(np.transpose(H_mi)).dot(np.linalg.pinv(R_mi))
+            # Check inverse distance to avoid an ill-conditioned Jacobian
+            if z_mi_dr_hat_FEJ < 0.1:
+                print(i, " range")
+                landmarks_quality[i] = -1
+                continue
 
-            x_hat = np.concatenate((ksi_hat,
-                                    self.m_estim[:,[i]]), axis=0)
+            z_mi_dx_hat_FEJ = z_mi_dxy_hat_FEJ[0][0]
+            z_mi_dy_hat_FEJ = z_mi_dxy_hat_FEJ[1][0]
+            q_FEJ = 1.0/z_mi_dr_hat_FEJ
+            q_FEJ_sq = q_FEJ**2 
+            H_mi_FEJ = np.concatenate((np.concatenate((np.concatenate((np.array([[-z_mi_dx_hat_FEJ*q_FEJ  , -z_mi_dy_hat_FEJ*q_FEJ   ,  0], 
+                                                                                 [z_mi_dy_hat_FEJ*q_FEJ_sq, -z_mi_dx_hat_FEJ*q_FEJ_sq, -1]]), \
+                                                                                                                                              np.zeros((2,2*i))),axis=1), np.array([[z_mi_dx_hat_FEJ*q_FEJ    , z_mi_dy_hat_FEJ*q_FEJ], \
+                                                                                                                                                                                    [-z_mi_dy_hat_FEJ*q_FEJ_sq, z_mi_dx_hat_FEJ*q_FEJ_sq]])), axis=1), np.zeros((2,2*(-1+self.num_landmarks-i)))), axis=1)
+
+            H_Shat_Ht = H_mi_FEJ.dot(self.S_estim).dot(np.transpose(H_mi_FEJ))
+
+            R_mi = H_Shat_Ht + self.R
+
+            R_mi_inv = np.linalg.pinv(R_mi, hermitian=True) 
 
             z_err = z_mi[:,[i]] - z_mi_hat
             #wrapToPi for bearing error (we don't do actual SE(2) math)
-            while z_err[1][0] > np.pi:
-                z_err[1][0] = z_err[1][0] - 2*np.pi
-            while z_err[1][0] <= -np.pi:
-                z_err[1][0] = z_err[1][0] + 2*np.pi
+            z_err[1][0] = wrapToPi(z_err[1][0])
 
-            x_upd = x_hat + K_mi.dot( z_err )
+            # Check Mahalanobis distance
+            Mah_i = np.transpose(z_err).dot(R_mi_inv.dot(z_err))[0][0]
+            if Mah_i > 9.0 or Mah_i < 0.0:
+                print(i, " Mah: ", Mah_i)
+                landmarks_quality[i] = -2
+                if self.landmarks_quality_history[i] >= 0:
+                    self.landmarks_quality_history[i] = self.landmarks_quality_history[i] + 1
+                continue
 
-            S_upd = ( np.eye(3+2) - K_mi.dot(H_mi) ).dot(S_hat);
+            x_hat = np.copy(self.ksi_estim)
+            for j in range(self.num_landmarks):
+                x_hat = np.concatenate((x_hat,
+                                        self.m_estim[:,[j]]), axis=0)
 
-            # Check condition number
-            cond_i = np.linalg.cond(S_upd[3 : 3+1 + 1 , 3 : 3+1 + 1])
-            #print(cond_i)
-            if cond_i > 5.0:
+            # EKF Update step
+            K_mi = self.S_estim.dot(np.transpose(H_mi_FEJ)).dot(R_mi_inv)
+            x_upd = x_hat + K_mi.dot(z_err)
+
+            S_upd = ( np.eye(3+2*self.num_landmarks) - K_mi.dot(H_mi_FEJ) ).dot(self.S_estim);
+            #S_upd = S_hat - K_mi.dot(R_mi).dot(np.transpose(K_mi))
+
+            # Check Positive-Definiteness
+            if not np.all(np.linalg.eigvals(S_upd) > 0):
+                print(i, " eig: "), print(S_upd)
+                landmarks_quality[i] = -3
+                if self.landmarks_quality_history[i] >= 0:
+                    self.landmarks_quality_history[i] = self.landmarks_quality_history[i] + 1
                 continue
 
             # Update pose estimate
-            self.ksi_estim    = np.copy(x_upd[0 : 2 + 1][:])
+            self.ksi_estim = x_upd[0 : 2 + 1]
 
             # Update landmark estimate
-            self.m_estim[:,[i]] = np.copy(x_upd[3 : 3+1 + 1][:])
+            for j in range(self.num_landmarks):
+                self.m_estim[:,[j]] = x_upd[3 + 2*j : 3 + 2*j+1 + 1]
 
             # Update pose - landmarks covariance
-            self.S_estim[0       : 2 + 1         , 0       : 2 + 1]         = np.copy(S_upd[0 : 2 + 1   , 0 : 2 + 1])
-            self.S_estim[3 + 2*i : 3 + 2*i+1 + 1 , 3 + 2*i : 3 + 2*i+1 + 1] = np.copy(S_upd[3 : 3+1 + 1 , 3 : 3+1 + 1])
-            self.S_estim[0       : 2 + 1         , 3 + 2*i : 3 + 2*i+1 + 1] = np.copy(S_upd[0 : 2 + 1   , 3 : 3+1 + 1])
-            self.S_estim[3 + 2*i : 3 + 2*i+1 + 1 , 0       : 2 + 1]         = np.copy(S_upd[3 : 3+1 + 1 , 0 : 2 + 1])
+            self.S_estim = np.copy(S_upd)
 
-        # Update pose covariance (auxilliary) variable
-        self.S_ksi_estim = np.copy(self.S_estim[0 : 2 + 1 , 0 : 2 + 1])
+            print(i, " ok")
+            landmarks_quality[i] = 1
+            self.landmarks_quality_history[i] = 0
 
         # draw estimate
         T_SB_estim = np.concatenate((np.concatenate((axangles.axangle2mat(np.array([0, 0, 1]), self.ksi_estim[2][0]), np.array([[self.ksi_estim[0][0]], [self.ksi_estim[1][0]], [0]])), axis=1),
@@ -401,10 +481,14 @@ class AppForm(QMainWindow):
         self.quiver_By_estim = T_SB_estim.dot(np.concatenate((self.quiver_Sy, np.array([[1]])), axis=0))
         self.quiver_Bz_estim = T_SB_estim.dot(np.concatenate((self.quiver_Sz, np.array([[1]])), axis=0))
 
-        scale_full = 1.0
-        self.axes.quiver(self.quiver_Bp_estim[0], self.quiver_Bp_estim[1], scale_full*(self.quiver_Bx_estim[0]-self.quiver_Bp_estim[0]), scale_full*(self.quiver_Bx_estim[1]-self.quiver_Bp_estim[1]), color=['r'])
-        self.axes.quiver(self.quiver_Bp_estim[0], self.quiver_Bp_estim[1], scale_full*(self.quiver_By_estim[0]-self.quiver_Bp_estim[0]), scale_full*(self.quiver_By_estim[1]-self.quiver_Bp_estim[1]), color=['g'])
-  
+        scale = 15.0
+        self.axes.quiver(self.quiver_Bp_estim[0], self.quiver_Bp_estim[1], 1.0*(self.quiver_Bx_estim[0]-self.quiver_Bp_estim[0]), 1.0*(self.quiver_Bx_estim[1]-self.quiver_Bp_estim[1]), color=['r'], scale=scale, width=0.005)
+        self.axes.quiver(self.quiver_Bp_estim[0], self.quiver_Bp_estim[1], 1.0*(self.quiver_By_estim[0]-self.quiver_Bp_estim[0]), 1.0*(self.quiver_By_estim[1]-self.quiver_Bp_estim[1]), color=['g'], scale=scale, width=0.005)
+        self.axes.set_xlim(self.quiver_Bp[0]-scale, self.quiver_Bp[0]+scale)
+        self.axes.set_ylim(self.quiver_Bp[1]-scale, self.quiver_Bp[1]+scale)
+        #self.axes.set_xlim(-scale, scale)
+        #self.axes.set_ylim(-scale, scale)
+
         # draw estimate body
         for vertex_pair in self.body_vertices:
             v0 = vertex_pair[0] 
@@ -415,15 +499,21 @@ class AppForm(QMainWindow):
             self.axes.plot([v0_transformed[0], v1_transformed[0]], [v0_transformed[1], v1_transformed[1]], color="g")
 
         # draw estimate landmarks
-        for i in range(self.num_landmarks):
-            self.axes.scatter([self.m_estim[0][i]], [self.m_estim[1][i]], color="m")  
+        for i in range(self.num_landmarks):       
+            self.axes.scatter([self.m_estim[0][i]], [self.m_estim[1][i]], color=colormap(landmarks_quality[i]))  
             #self.axes.plot([self.ksi_estim[0][0], self.m_estim[0][i]], [self.ksi_estim[1][0], self.m_estim[1][i]], color="m", linestyle="dashed", linewidth=1.0)
-            self.axes.plot([self.ksi_estim[0][0], self.ksi_estim[0][0] + z_mi[0][i]*np.cos(z_mi[1][i]+self.ksi_estim[2][0])], [self.ksi_estim[1][0], self.ksi_estim[1][0] + z_mi[0][i]*np.sin(z_mi[1][i]+self.ksi_estim[2][0])], color="m", linestyle="dashed", linewidth=1.0)
+            self.axes.plot([self.ksi_estim[0][0], self.ksi_estim[0][0] + z_mi[0][i]*np.cos(z_mi[1][i]+self.ksi_estim[2][0])], [self.ksi_estim[1][0], self.ksi_estim[1][0] + z_mi[0][i]*np.sin(z_mi[1][i]+self.ksi_estim[2][0])], color=colormap(landmarks_quality[i]), linestyle="dashed", linewidth=1.0)
 
-        W, V = np.linalg.eig(self.S_ksi_estim[0 : 2 + 1 , 0 : 2 +1])
+        W, V = np.linalg.eig(self.S_estim[0 : 1 + 1 , 0 : 1 +1])
         idx = W.argsort()[::-1]   
         W = W[idx]
         V = V[:,idx]
+
+        if W[0] < 0 or W[1] < 0:
+            print("NEGATIVE EIGENVALUE (position)")
+
+        # augment eigenvectors array to pseudo-3D
+        V = np.concatenate((np.concatenate((V, np.array([[0.0, 0.0]])), axis=0), np.array([[0.0], [0.0], [0.0]])), axis=1)
 
         ellipsoid_t = np.linspace(0, 2*np.pi, 25)
         ellipsoid_x = np.sqrt(5.991*W[0]) * np.cos(ellipsoid_t)
@@ -436,7 +526,7 @@ class AppForm(QMainWindow):
             ellipsoid_i_xy = T_estim_trans.dot(np.concatenate((np.concatenate((V,np.array([[0],[0],[0]])), axis=1), np.array([[0,0,0,1]])), axis=0)).dot(np.array([[ellipsoid_x_transformed[j]], [ellipsoid_y_transformed[j]], [0], [1]]))
             ellipsoid_x_transformed[j] = ellipsoid_i_xy[0]
             ellipsoid_y_transformed[j] = ellipsoid_i_xy[1]
-        self.axes.plot(ellipsoid_x_transformed, ellipsoid_y_transformed, color="m")
+        self.axes.plot(ellipsoid_x_transformed, ellipsoid_y_transformed, color="c")
 
         for i in range(self.num_landmarks):
             W, V = np.linalg.eig(self.S_estim[3 + 2*i : 3 + 2*i+1 + 1 , 3 + 2*i : 3 + 2*i+1 + 1])
@@ -444,6 +534,9 @@ class AppForm(QMainWindow):
             W = W[idx]
             V = V[:,idx]      
       
+            if W[0] < 0 or W[1] < 0:
+                print("NEGATIVE EIGENVALUE (", i, ")")
+
             # augment eigenvectors array to pseudo-3D
             V = np.concatenate((np.concatenate((V, np.array([[0.0, 0.0]])), axis=0), np.array([[0.0], [0.0], [0.0]])), axis=1)
 
@@ -458,27 +551,42 @@ class AppForm(QMainWindow):
                 ellipsoid_i_xy = T_mi_estim_trans.dot(np.concatenate((np.concatenate((V,np.array([[0],[0],[0]])), axis=1), np.array([[0,0,0,1]])), axis=0)).dot(np.array([[ellipsoid_x_transformed[j]], [ellipsoid_y_transformed[j]], [0], [1]]))
                 ellipsoid_x_transformed[j] = ellipsoid_i_xy[0]
                 ellipsoid_y_transformed[j] = ellipsoid_i_xy[1]
-            self.axes.plot(ellipsoid_x_transformed, ellipsoid_y_transformed, color="m")
+            self.axes.plot(ellipsoid_x_transformed, ellipsoid_y_transformed, color=colormap(landmarks_quality[i]))
      
+        # replace deprecated landmarks (odometry-like SLAM)
+        print(*self.landmarks_quality_history)
+        for i in range(self.num_landmarks):
+            if self.landmarks_quality_history[i] >= self.landmarks_quality_counter_threshold:
+                self.landmarks_quality_history[i] = -1
+
+                self.m_groundtruth[:,[i]] = np.copy(self.ksi_groundtruth[0:1 + 1]) + np.array([[randomSign()*self.rng.uniform(1.0, 5.0)],[randomSign()*self.rng.uniform(1.0, 5.0)]])
+                z_mi_dxy_groundtruth = self.m_groundtruth[:,[i]] - self.ksi_groundtruth[0:1 + 1]
+                z_mi_dr_groundtruth = np.linalg.norm(z_mi_dxy_groundtruth) + np.max(np.array([-2.0*self.sigma_range, np.min(np.array([2.0*self.sigma_range, self.rng.normal(0.0, self.sigma_range)]))]))
+                z_mi_dtheta_groundtruth = np.arctan2(z_mi_dxy_groundtruth[1][0], z_mi_dxy_groundtruth[0][0]) - self.ksi_groundtruth[2][0] + np.max(np.array([-2.0*self.sigma_bearing, np.min(np.array([2.0*self.sigma_bearing, self.rng.normal(0.0, self.sigma_bearing)]))]))
+                #wrapToPi for bearing measurement
+                z_mi_dtheta_groundtruth = wrapToPi(z_mi_dtheta_groundtruth)
+                z_mi[:,[i]] = np.array([[z_mi_dr_groundtruth], [z_mi_dtheta_groundtruth]]) 
+
+                self.m_estim[:,[i]] = np.array([[self.ksi_estim[0][0] + z_mi[0][i]*np.cos(self.ksi_estim[2][0] + z_mi[1][i])], \
+                                                [self.ksi_estim[1][0] + z_mi[0][i]*np.sin(self.ksi_estim[2][0] + z_mi[1][i])]])
+
+                self.H_mi_linpoint_FEJ[i] = np.copy(self.m_estim[:,[i]])
+
+                self.S_estim[:                       , 3 + 2*i : 3 + 2*i+1 + 1] = np.zeros((3+2*self.num_landmarks, 2))
+                self.S_estim[3 + 2*i : 3 + 2*i+1 + 1 , :]                       = np.zeros((2, 3+2*self.num_landmarks))
+                self.S_estim[3 + 2*i : 3 + 2*i+1 + 1 , 3 + 2*i : 3 + 2*i+1 + 1] = self.S_m_new
+
+        # cache required values for next-iteration use (e.g. as previous hat robot pose estimate)
+        self.ksi_hat_previous  = np.copy(ksi_hat)
+
         self.canvas.draw()
 
-    def on_update_values(self):       
-        m_0_groundtruth = self.m_0_groundtruth.text().split(',')
-        self.m_groundtruth[0][0] = float(m_0_groundtruth[0])
-        self.m_groundtruth[1][0] = float(m_0_groundtruth[1])
-        m_1_groundtruth = self.m_1_groundtruth.text().split(',')
-        self.m_groundtruth[0][1] = float(m_1_groundtruth[0])
-        self.m_groundtruth[1][1] = float(m_1_groundtruth[1])
-        m_2_groundtruth = self.m_2_groundtruth.text().split(',')
-        self.m_groundtruth[0][2] = float(m_2_groundtruth[0])
-        self.m_groundtruth[1][2] = float(m_2_groundtruth[1])
-        m_3_groundtruth = self.m_3_groundtruth.text().split(',')
-        self.m_groundtruth[0][3] = float(m_3_groundtruth[0])
-        self.m_groundtruth[1][3] = float(m_3_groundtruth[1])
-        m_4_groundtruth = self.m_4_groundtruth.text().split(',')
-        self.m_groundtruth[0][4] = float(m_4_groundtruth[0])
-        self.m_groundtruth[1][4] = float(m_4_groundtruth[1])
-        #print(self.m_groundtruth)
+    # def on_update_values(self): 
+    #     for i in range(self.m_groundtruth_text): 
+    #         m_i_groundtruth_text = self.m_groundtruth_text[i].text().split(',')
+    #         self.m_groundtruth[0][i] = float(m_i_groundtruth_text[0])
+    #         self.m_groundtruth[1][i] = float(m_i_groundtruth_text[1])
+    #     #print(self.m_groundtruth)
 
         #self.on_draw()
 
@@ -495,33 +603,15 @@ class AppForm(QMainWindow):
         self.mpl_toolbar = NavigationToolbar(self.canvas, self.main_frame)
         
 
-        self.m_0_groundtruth = QLineEdit()
-        self.m_0_groundtruth.setMinimumWidth(65)
-        self.m_0_groundtruth.setFixedWidth(65)
-        self.connect(self.m_0_groundtruth, SIGNAL('editingFinished()'), self.on_update_values)
-
-        self.m_1_groundtruth = QLineEdit()
-        self.m_1_groundtruth.setMinimumWidth(65)
-        self.m_1_groundtruth.setFixedWidth(65)
-        self.connect(self.m_1_groundtruth, SIGNAL('editingFinished()'), self.on_update_values)
-
-        self.m_2_groundtruth = QLineEdit()
-        self.m_2_groundtruth.setMinimumWidth(65)
-        self.m_2_groundtruth.setFixedWidth(65)
-        self.connect(self.m_2_groundtruth, SIGNAL('editingFinished()'), self.on_update_values)
-
-        self.m_3_groundtruth = QLineEdit()
-        self.m_3_groundtruth.setMinimumWidth(65)
-        self.m_3_groundtruth.setFixedWidth(65)
-        self.connect(self.m_3_groundtruth, SIGNAL('editingFinished()'), self.on_update_values)
-
-        self.m_4_groundtruth = QLineEdit()
-        self.m_4_groundtruth.setMinimumWidth(65)
-        self.m_4_groundtruth.setFixedWidth(65)
-        self.connect(self.m_4_groundtruth, SIGNAL('editingFinished()'), self.on_update_values)
+        self.m_groundtruth_text = list()
+        for i in range(self.num_landmarks):
+            self.m_groundtruth_text.append(QLineEdit())
+            self.m_groundtruth_text[i].setMinimumWidth(65)
+            self.m_groundtruth_text[i].setFixedWidth(65)
+        #     self.connect(self.m_groundtruth_text[i], SIGNAL('editingFinished()'), self.on_update_values)
 
         hbox_rb = QHBoxLayout()
-        for w in [ QLabel('landmarks x,y'), QLabel('#1'), self.m_0_groundtruth, QLabel('#2'), self.m_1_groundtruth, QLabel('#3'), self.m_2_groundtruth, QLabel('#4'), self.m_3_groundtruth, QLabel('#5'), self.m_4_groundtruth]:
+        for w in [ QLabel('landmarks x,y'), QLabel('#1'), self.m_groundtruth_text[0], QLabel('#2'), self.m_groundtruth_text[1], QLabel('#3'), self.m_groundtruth_text[2], QLabel('#4'), self.m_groundtruth_text[3], QLabel('#5'), self.m_groundtruth_text[4]]:
             hbox_rb.addWidget(w)
             hbox_rb.setAlignment(w, Qt.AlignVCenter)
 
