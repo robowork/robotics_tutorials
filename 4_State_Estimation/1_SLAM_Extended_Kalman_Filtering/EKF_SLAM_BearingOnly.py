@@ -130,16 +130,23 @@ class AppForm(QMainWindow):
         for i in range(self.num_landmarks): 
             self.m_groundtruth_text[i].setText(str(self.m_groundtruth[0][i])+","+str(self.m_groundtruth[1][i]))
 
-        self.m_estim = np.copy(self.m_groundtruth)
-        for i in range(self.num_landmarks):
-            self.m_estim[:,[i]] = 5.0 * self.m_groundtruth[:,[i]] / np.linalg.norm(self.m_groundtruth[:,[i]])  #initialize at 5m range, assumes we have some disparity-based delayed initialization pipeline for depth
-
         ksi_0 = np.array([[0.0], \
                           [0.0], \
                           [np.deg2rad(0.0)]])  # [x, y, theta]
         self.ksi_groundtruth = np.copy(ksi_0)
         self.ksi_estim = np.copy(ksi_0)
         self.ksi_hat_previous = np.copy(ksi_0)
+
+        self.m_estim = np.copy(self.m_groundtruth)
+        for i in range(self.num_landmarks):
+            #self.m_estim[:,[i]] = 5.0 * self.m_groundtruth[:,[i]] / np.linalg.norm(self.m_groundtruth[:,[i]])  #initialize at 5m range (blindly)
+            z_mi_dxy_init = self.m_groundtruth[:,[i]] - self.ksi_groundtruth[0:1 + 1]
+            z_mi_dr_init = np.linalg.norm(z_mi_dxy_init) + self.rng.normal(0.0, 1.0)  #initialize at a depth of +-1.0m sigma (assumes we have some disparity-based delayed initialization pipeline for depth)
+            z_mi_dtheta_init = np.arctan2(z_mi_dxy_init[1][0], z_mi_dxy_init[0][0]) - self.ksi_groundtruth[2][0] + self.rng.normal(0.0,np.deg2rad(5.0))  #initialize at a bearing of +-5.0deg sigma
+            z_mi_dtheta_init = wrapToPi(z_mi_dtheta_init)
+
+            self.m_estim[:,[i]] = np.array([[self.ksi_estim[0][0] + z_mi_dr_init*np.cos(self.ksi_estim[2][0] + z_mi_dtheta_init)], \
+                                            [self.ksi_estim[1][0] + z_mi_dr_init*np.sin(self.ksi_estim[2][0] + z_mi_dtheta_init)]])
 
         self.u_t = np.array([[0.0], \
                              [0.0]])  # input forward and turn velocity
@@ -544,14 +551,14 @@ class AppForm(QMainWindow):
                 self.landmarks_quality_history[i] = -1
 
                 self.m_groundtruth[:,[i]] = np.copy(self.ksi_groundtruth[0:1 + 1]) + np.array([[randomSign()*self.rng.uniform(1.0, 5.0)],[randomSign()*self.rng.uniform(1.0, 5.0)]])
-                z_mi_dxy_groundtruth = self.m_groundtruth[:,[i]] - self.ksi_groundtruth[0:1 + 1]
-                z_mi_dtheta_groundtruth = np.arctan2(z_mi_dxy_groundtruth[1][0], z_mi_dxy_groundtruth[0][0]) - self.ksi_groundtruth[2][0] + np.max(np.array([-2.0*self.sigma_bearing, np.min(np.array([2.0*self.sigma_bearing, self.rng.normal(0.0, self.sigma_bearing)]))]))
-                #wrapToPi for bearing measurement
-                z_mi_dtheta_groundtruth = wrapToPi(z_mi_dtheta_groundtruth)
-                z_mi[:,[i]] = np.array([[z_mi_dtheta_groundtruth]]) 
+                z_mi_dxy_init = self.m_groundtruth[:,[i]] - self.ksi_groundtruth[0:1 + 1]
+                z_mi_dr_init = np.linalg.norm(z_mi_dxy_init) + self.rng.normal(0.0, 1.0)  #initialize at a depth of +-1.0m sigma (assumes we have some disparity-based delayed initialization pipeline for depth)
+                z_mi_dtheta_init = np.arctan2(z_mi_dxy_init[1][0], z_mi_dxy_init[0][0]) - self.ksi_groundtruth[2][0] + np.max(np.array([-2.0*self.sigma_bearing, np.min(np.array([2.0*self.sigma_bearing, self.rng.normal(0.0, self.sigma_bearing)]))]))   #initialize based on sigma_bearing
+                z_mi_dtheta_init = wrapToPi(z_mi_dtheta_init)
+                z_mi[:,[i]] = np.array([[z_mi_dtheta_init]]) 
 
-                self.m_estim[:,[i]] = np.array([[self.ksi_estim[0][0] + 5.0*np.cos(self.ksi_estim[2][0] + z_mi[0][i])], \
-                                                [self.ksi_estim[1][0] + 5.0*np.sin(self.ksi_estim[2][0] + z_mi[0][i])]])   #initialize at 5m range, assumes we have some disparity-based delayed initialization pipeline for depth
+                self.m_estim[:,[i]] = np.array([[self.ksi_estim[0][0] + z_mi_dr_init*np.cos(self.ksi_estim[2][0] + z_mi_dtheta_init)], \
+                                                [self.ksi_estim[1][0] + z_mi_dr_init*np.sin(self.ksi_estim[2][0] + z_mi_dtheta_init)]])
 
                 self.S_estim[:                       , 3 + 2*i : 3 + 2*i+1 + 1] = np.zeros((3+2*self.num_landmarks, 2))
                 self.S_estim[3 + 2*i : 3 + 2*i+1 + 1 , :]                       = np.zeros((2, 3+2*self.num_landmarks))

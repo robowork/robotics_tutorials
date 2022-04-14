@@ -131,15 +131,15 @@ class AppForm(QMainWindow):
         for i in range(self.num_landmarks): 
             self.m_groundtruth_text[i].setText(str(self.m_groundtruth[0][i])+","+str(self.m_groundtruth[1][i]))
 
-        self.m_estim = np.copy(self.m_groundtruth)
-        for i in range(self.num_landmarks):
-            self.m_estim[:,[i]] = self.m_estim[:,[i]] + np.array([[self.rng.normal(0.0, 0.5)],[self.rng.normal(0.0, 0.5)]])  #initialize at a sigma if +-0.5m in xy
-
         ksi_0 = np.array([[0.0], \
                           [0.0], \
                           [np.deg2rad(0.0)]])  # [x, y, theta]
         self.ksi_groundtruth = np.copy(ksi_0)
         self.ksi_estim = np.copy(ksi_0)
+
+        self.m_estim = np.copy(self.m_groundtruth)
+        for i in range(self.num_landmarks):
+            self.m_estim[:,[i]] = self.m_estim[:,[i]] + np.array([[self.rng.normal(0.0, 0.5)],[self.rng.normal(0.0, 0.5)]])  #initialize at a sigma if +-0.5m in xy
 
         self.u_t = np.array([[0.0], \
                              [0.0]])  # input forward and turn velocity
