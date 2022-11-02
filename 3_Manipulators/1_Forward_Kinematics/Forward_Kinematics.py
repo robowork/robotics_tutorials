@@ -382,49 +382,63 @@ class AppForm(QMainWindow):
             self.axes.plot_surface(ellipsoid_x_transformed, ellipsoid_y_transformed, ellipsoid_z_transformed, rstride=4, cstride=4, cmap='seismic', alpha=0.125)
 
         if self.scenario == 1:
-            # 3-Joint SE(3)
-            L1 = 0.25
-            L2 = 0.10
-            L3 = 0.75
-            L4 = 0.25
-            L5 = 0.50
+            # 6-Joint SE(3)
+            L1 = 0.50
+            L2 = 0.25
+            L3 = 1.0
+            L4 = 0.50
+            L5 = 1.0
+            L6 = 0.25
+            L7 = 0.50
+            L8 = 0.50
+            L9 = 0.25
+            L10 = 0.10
 
-            Home_T = np.concatenate((np.concatenate((np.eye(3), np.array([[(-L4)], [(L2)], [(L1+L3+L5)]])), axis=1), \
+            Home_T = np.concatenate((np.concatenate((np.eye(3), np.array([[L9+L10], [-L2+L4-L6], [L1+L3+L5+L7+L8]])), axis=1), \
                                      np.array([[0, 0, 0, 1]])), axis=0)
 
             S1 = np.concatenate((np.array([[0], [0], [1]]), \
-                                 np.cross(-np.array([[0], [0], [1]]) , np.array([[L4], [-(L2)], [-(L1+L3+L5)]]), axis=0)), axis=0)
+                                 np.cross(-np.array([[0], [0], [1]]) , np.array([[-L10-L9], [+L6-L4+L2], [-L8-L7-L5-L3-L1]]), axis=0)), axis=0)
             S2 = np.concatenate((np.array([[0], [1], [0]]), \
-                                 np.cross(-np.array([[0], [1], [0]]) , np.array([[L4], [-(0)], [-(L3+L5)]]), axis=0)), axis=0)
-            S3 = np.concatenate((np.array([[1], [0], [0]]), \
-                                 np.cross(-np.array([[1], [0], [0]]) , np.array([[0], [-(0)], [-(L5)]]), axis=0)), axis=0)
+                                 np.cross(-np.array([[0], [1], [0]]) , np.array([[-L10-L9], [+L6-L4], [-L8-L7-L5-L3]]), axis=0)), axis=0)
+            S3 = np.concatenate((np.array([[0], [1], [0]]), \
+                                 np.cross(-np.array([[0], [1], [0]]) , np.array([[-L10-L9], [+L6], [-L8-L7-L5]]), axis=0)), axis=0)
+            S4 = np.concatenate((np.array([[0], [1], [0]]), \
+                                 np.cross(-np.array([[0], [1], [0]]) , np.array([[-L10-L9], [0], [-L8-L7]]), axis=0)), axis=0)
+            S5 = np.concatenate((np.array([[0], [0], [1]]), \
+                                 np.cross(-np.array([[0], [0], [1]]) , np.array([[-L10-L9], [0], [-L8]]), axis=0)), axis=0)
+            S6 = np.concatenate((np.array([[1], [0], [0]]), \
+                                 np.cross(-np.array([[1], [0], [0]]) , np.array([[-L10], [0], [0]]), axis=0)), axis=0)
 
             e_S1Matrix_theta1 = RigidBodyDynamics.ExpMap(S1, self.val_theta_1)
             e_S2Matrix_theta2 = RigidBodyDynamics.ExpMap(S2, self.val_theta_2)
             e_S3Matrix_theta3 = RigidBodyDynamics.ExpMap(S3, self.val_theta_3)
-            
-            E_T = ((Home_T.dot(e_S1Matrix_theta1)).dot(e_S2Matrix_theta2)).dot(e_S3Matrix_theta3)  # Post-multiply
+            e_S4Matrix_theta4 = RigidBodyDynamics.ExpMap(S4, self.val_theta_4)
+            e_S5Matrix_theta5 = RigidBodyDynamics.ExpMap(S5, self.val_theta_5)
+            e_S6Matrix_theta6 = RigidBodyDynamics.ExpMap(S6, self.val_theta_6)
+
+            E_T = (((((Home_T.dot(e_S1Matrix_theta1)).dot(e_S2Matrix_theta2)).dot(e_S3Matrix_theta3)).dot(e_S4Matrix_theta4)).dot(e_S5Matrix_theta5)).dot(e_S6Matrix_theta6)  # Post-multiply
 
             # Intermediate frames
             # Joint 1
-            Home_j1 = np.concatenate((np.concatenate((np.eye(3), np.array([[-(0)], [(0)], [(0)]])), axis=1), \
+            Home_j1 = np.concatenate((np.concatenate((np.eye(3), np.array([[0], [0], [0]])), axis=1), \
                                       np.array([[0, 0, 0, 1]])), axis=0)
              
             j1_S1 = np.concatenate((np.array([[0], [0], [1]]), \
-                                    np.cross(-np.array([[0], [0], [1]]) , np.array([[-(0)], [0], [0]]), axis=0)), axis=0)
+                                    np.cross(-np.array([[0], [0], [1]]) , np.array([[0], [0], [0]]), axis=0)), axis=0)
            
             e_j1S1Matrix_theta1 = RigidBodyDynamics.ExpMap(j1_S1, self.val_theta_1)
 
             j1_T = Home_j1.dot(e_j1S1Matrix_theta1)  # Post-multiply
 
             # Joint 2
-            Home_j2 = np.concatenate((np.concatenate((np.eye(3), np.array([[-(0)], [(L2)], [(L1)]])), axis=1), \
+            Home_j2 = np.concatenate((np.concatenate((np.eye(3), np.array([[0], [-L2], [L1]])), axis=1), \
                                       np.array([[0, 0, 0, 1]])), axis=0)
 
             j2_S1 = np.concatenate((np.array([[0], [0], [1]]), \
-                                    np.cross(-np.array([[0], [0], [1]]) , np.array([[0], [-(L2)], [-(L1)]]), axis=0)), axis=0)
+                                    np.cross(-np.array([[0], [0], [1]]) , np.array([[0], [+L2], [-L1]]), axis=0)), axis=0)
             j2_S2 = np.concatenate((np.array([[0], [1], [0]]), \
-                                    np.cross(-np.array([[0], [1], [0]]) , np.array([[0], [-(0)], [-(0)]]), axis=0)), axis=0)
+                                    np.cross(-np.array([[0], [1], [0]]) , np.array([[0], [0], [0]]), axis=0)), axis=0)
            
             e_j2S1Matrix_theta1 = RigidBodyDynamics.ExpMap(j2_S1, self.val_theta_1)
             e_j2S2Matrix_theta2 = RigidBodyDynamics.ExpMap(j2_S2, self.val_theta_2)
@@ -432,21 +446,90 @@ class AppForm(QMainWindow):
             j2_T = (Home_j2.dot(e_j2S1Matrix_theta1)).dot(e_j2S2Matrix_theta2)  # Post-multiply
             
             # Joint 3
-            Home_j3 = np.concatenate((np.concatenate((np.eye(3), np.array([[-(L4)], [(L2)], [(L1+L3)]])), axis=1), \
+            Home_j3 = np.concatenate((np.concatenate((np.eye(3), np.array([[0], [-L2+L4], [L1+L3]])), axis=1), \
                                       np.array([[0, 0, 0, 1]])), axis=0)
 
             j3_S1 = np.concatenate((np.array([[0], [0], [1]]), \
-                                    np.cross(-np.array([[0], [0], [1]]) , np.array([[L4], [-(L2)], [-(L1+L3)]]), axis=0)), axis=0)
+                                    np.cross(-np.array([[0], [0], [1]]) , np.array([[0], [-L4+L2], [-L3-L1]]), axis=0)), axis=0)
             j3_S2 = np.concatenate((np.array([[0], [1], [0]]), \
-                                    np.cross(-np.array([[0], [1], [0]]) , np.array([[L4], [-(0)], [-(L3)]]), axis=0)), axis=0)
-            j3_S3 = np.concatenate((np.array([[1], [0], [0]]), \
-                                    np.cross(-np.array([[1], [0], [0]]) , np.array([[0], [-(0)], [-(0)]]), axis=0)), axis=0)     
+                                    np.cross(-np.array([[0], [1], [0]]) , np.array([[0], [-L4], [-L3]]), axis=0)), axis=0)   
+            j3_S3 = np.concatenate((np.array([[0], [1], [0]]), \
+                                    np.cross(-np.array([[0], [1], [0]]) , np.array([[0], [0], [0]]), axis=0)), axis=0) 
 
             e_j3S1Matrix_theta1 = RigidBodyDynamics.ExpMap(j3_S1, self.val_theta_1)
             e_j3S2Matrix_theta2 = RigidBodyDynamics.ExpMap(j3_S2, self.val_theta_2)
             e_j3S3Matrix_theta3 = RigidBodyDynamics.ExpMap(j3_S3, self.val_theta_3)
 
             j3_T = ((Home_j3.dot(e_j3S1Matrix_theta1)).dot(e_j3S2Matrix_theta2)).dot(e_j3S3Matrix_theta3)  # Post-multiply
+
+            # Joint 4
+            Home_j4 = np.concatenate((np.concatenate((np.eye(3), np.array([[0], [-L2+L4-L6], [L1+L3+L5]])), axis=1), \
+                                      np.array([[0, 0, 0, 1]])), axis=0)
+
+            j4_S1 = np.concatenate((np.array([[0], [0], [1]]), \
+                                    np.cross(-np.array([[0], [0], [1]]) , np.array([[0], [+L6-L4+L2], [-L5-L3-L1]]), axis=0)), axis=0)
+            j4_S2 = np.concatenate((np.array([[0], [1], [0]]), \
+                                    np.cross(-np.array([[0], [1], [0]]) , np.array([[0], [+L6-L4], [-L5-L3]]), axis=0)), axis=0)  
+            j4_S3 = np.concatenate((np.array([[0], [1], [0]]), \
+                                    np.cross(-np.array([[0], [1], [0]]) , np.array([[0], [+L6], [-L5]]), axis=0)), axis=0) 
+            j4_S4 = np.concatenate((np.array([[0], [1], [0]]), \
+                                    np.cross(-np.array([[0], [1], [0]]) , np.array([[0], [0], [0]]), axis=0)), axis=0) 
+
+            e_j4S1Matrix_theta1 = RigidBodyDynamics.ExpMap(j4_S1, self.val_theta_1)
+            e_j4S2Matrix_theta2 = RigidBodyDynamics.ExpMap(j4_S2, self.val_theta_2)
+            e_j4S3Matrix_theta3 = RigidBodyDynamics.ExpMap(j4_S3, self.val_theta_3)
+            e_j4S4Matrix_theta4 = RigidBodyDynamics.ExpMap(j4_S4, self.val_theta_4)
+
+            j4_T = (((Home_j4.dot(e_j4S1Matrix_theta1)).dot(e_j4S2Matrix_theta2)).dot(e_j4S3Matrix_theta3)).dot(e_j4S4Matrix_theta4)  # Post-multiply
+
+            # Joint 5
+            Home_j5 = np.concatenate((np.concatenate((np.eye(3), np.array([[0], [-L2+L4-L6], [L1+L3+L5+L7]])), axis=1), \
+                                      np.array([[0, 0, 0, 1]])), axis=0)
+
+            j5_S1 = np.concatenate((np.array([[0], [0], [1]]), \
+                                    np.cross(-np.array([[0], [0], [1]]) , np.array([[0], [+L6-L4+L2], [-L7-L5-L3-L1]]), axis=0)), axis=0)
+            j5_S2 = np.concatenate((np.array([[0], [1], [0]]), \
+                                    np.cross(-np.array([[0], [1], [0]]) , np.array([[0], [+L6-L4], [-L7-L5-L3]]), axis=0)), axis=0)  
+            j5_S3 = np.concatenate((np.array([[0], [1], [0]]), \
+                                    np.cross(-np.array([[0], [1], [0]]) , np.array([[0], [+L6], [-L7-L5]]), axis=0)), axis=0) 
+            j5_S4 = np.concatenate((np.array([[0], [1], [0]]), \
+                                    np.cross(-np.array([[0], [1], [0]]) , np.array([[0], [0], [-L7]]), axis=0)), axis=0) 
+            j5_S5 = np.concatenate((np.array([[0], [0], [1]]), \
+                                    np.cross(-np.array([[0], [0], [1]]) , np.array([[0], [0], [0]]), axis=0)), axis=0) 
+
+            e_j5S1Matrix_theta1 = RigidBodyDynamics.ExpMap(j5_S1, self.val_theta_1)
+            e_j5S2Matrix_theta2 = RigidBodyDynamics.ExpMap(j5_S2, self.val_theta_2)
+            e_j5S3Matrix_theta3 = RigidBodyDynamics.ExpMap(j5_S3, self.val_theta_3)
+            e_j5S4Matrix_theta4 = RigidBodyDynamics.ExpMap(j5_S4, self.val_theta_4)
+            e_j5S5Matrix_theta5 = RigidBodyDynamics.ExpMap(j5_S5, self.val_theta_5)
+
+            j5_T = ((((Home_j5.dot(e_j5S1Matrix_theta1)).dot(e_j5S2Matrix_theta2)).dot(e_j5S3Matrix_theta3)).dot(e_j5S4Matrix_theta4)).dot(e_j5S5Matrix_theta5)  # Post-multiply
+
+            # Joint 6
+            Home_j6 = np.concatenate((np.concatenate((np.eye(3), np.array([[L9], [-L2+L4-L6], [L1+L3+L5+L7+L8]])), axis=1), \
+                                      np.array([[0, 0, 0, 1]])), axis=0)
+
+            j6_S1 = np.concatenate((np.array([[0], [0], [1]]), \
+                                    np.cross(-np.array([[0], [0], [1]]) , np.array([[-L9], [+L6-L4+L2], [-L8-L7-L5-L3-L1]]), axis=0)), axis=0)
+            j6_S2 = np.concatenate((np.array([[0], [1], [0]]), \
+                                    np.cross(-np.array([[0], [1], [0]]) , np.array([[-L9], [+L6-L4], [-L8-L7-L5-L3]]), axis=0)), axis=0)  
+            j6_S3 = np.concatenate((np.array([[0], [1], [0]]), \
+                                    np.cross(-np.array([[0], [1], [0]]) , np.array([[-L9], [+L6], [-L8-L7-L5]]), axis=0)), axis=0) 
+            j6_S4 = np.concatenate((np.array([[0], [1], [0]]), \
+                                    np.cross(-np.array([[0], [1], [0]]) , np.array([[-L9], [0], [-L8-L7]]), axis=0)), axis=0) 
+            j6_S5 = np.concatenate((np.array([[0], [0], [1]]), \
+                                    np.cross(-np.array([[0], [0], [1]]) , np.array([[-L9], [0], [-L8]]), axis=0)), axis=0) 
+            j6_S6 = np.concatenate((np.array([[1], [0], [0]]), \
+                                    np.cross(-np.array([[1], [0], [0]]) , np.array([[0], [0], [0]]), axis=0)), axis=0) 
+
+            e_j6S1Matrix_theta1 = RigidBodyDynamics.ExpMap(j6_S1, self.val_theta_1)
+            e_j6S2Matrix_theta2 = RigidBodyDynamics.ExpMap(j6_S2, self.val_theta_2)
+            e_j6S3Matrix_theta3 = RigidBodyDynamics.ExpMap(j6_S3, self.val_theta_3)
+            e_j6S4Matrix_theta4 = RigidBodyDynamics.ExpMap(j6_S4, self.val_theta_4)
+            e_j6S5Matrix_theta5 = RigidBodyDynamics.ExpMap(j6_S5, self.val_theta_5)
+            e_j6S6Matrix_theta6 = RigidBodyDynamics.ExpMap(j6_S6, self.val_theta_6)
+
+            j6_T = (((((Home_j6.dot(e_j6S1Matrix_theta1)).dot(e_j6S2Matrix_theta2)).dot(e_j6S3Matrix_theta3)).dot(e_j6S4Matrix_theta4)).dot(e_j6S5Matrix_theta5)).dot(e_j6S6Matrix_theta6)  # Post-multiply
 
             self.quiver_Ep = E_T.dot(np.concatenate((self.S_p, np.array([[1]])), axis=0))
             self.quiver_Ex = E_T.dot(np.concatenate((self.quiver_Sx, np.array([[1]])), axis=0))
@@ -468,10 +551,25 @@ class AppForm(QMainWindow):
             self.quiver_J3y = j3_T.dot(np.concatenate((self.quiver_Sy, np.array([[1]])), axis=0))
             self.quiver_J3z = j3_T.dot(np.concatenate((self.quiver_Sz, np.array([[1]])), axis=0))
 
+            self.quiver_J4p = j4_T.dot(np.concatenate((self.S_p, np.array([[1]])), axis=0))
+            self.quiver_J4x = j4_T.dot(np.concatenate((self.quiver_Sx, np.array([[1]])), axis=0))
+            self.quiver_J4y = j4_T.dot(np.concatenate((self.quiver_Sy, np.array([[1]])), axis=0))
+            self.quiver_J4z = j4_T.dot(np.concatenate((self.quiver_Sz, np.array([[1]])), axis=0))
+
+            self.quiver_J5p = j5_T.dot(np.concatenate((self.S_p, np.array([[1]])), axis=0))
+            self.quiver_J5x = j5_T.dot(np.concatenate((self.quiver_Sx, np.array([[1]])), axis=0))
+            self.quiver_J5y = j5_T.dot(np.concatenate((self.quiver_Sy, np.array([[1]])), axis=0))
+            self.quiver_J5z = j5_T.dot(np.concatenate((self.quiver_Sz, np.array([[1]])), axis=0))
+
+            self.quiver_J6p = j6_T.dot(np.concatenate((self.S_p, np.array([[1]])), axis=0))
+            self.quiver_J6x = j6_T.dot(np.concatenate((self.quiver_Sx, np.array([[1]])), axis=0))
+            self.quiver_J6y = j6_T.dot(np.concatenate((self.quiver_Sy, np.array([[1]])), axis=0))
+            self.quiver_J6z = j6_T.dot(np.concatenate((self.quiver_Sz, np.array([[1]])), axis=0))
+
             # links
             L1_point0 = np.array([[0], [0], [0]])
             L1_point1 = np.array([[0], [0], [+L1]])
-            L1_point2 = np.array([[0], [+L2], [+L1]])
+            L1_point2 = np.array([[0], [-L2], [+L1]])
             L1_point0_transformed = j1_T.dot(np.concatenate((L1_point0, np.array([[1]])), axis=0))
             L1_point1_transformed = j1_T.dot(np.concatenate((L1_point1, np.array([[1]])), axis=0))
             L1_point2_transformed = j1_T.dot(np.concatenate((L1_point2, np.array([[1]])), axis=0))
@@ -482,7 +580,7 @@ class AppForm(QMainWindow):
 
             L2_point0 = np.array([[0], [0], [0]])
             L2_point1 = np.array([[0], [0], [+L3]])
-            L2_point2 = np.array([[-L4], [0], [+L3]])
+            L2_point2 = np.array([[0], [+L4], [+L3]])
             L2_point0_transformed = j2_T.dot(np.concatenate((L2_point0, np.array([[1]])), axis=0))
             L2_point1_transformed = j2_T.dot(np.concatenate((L2_point1, np.array([[1]])), axis=0))
             L2_point2_transformed = j2_T.dot(np.concatenate((L2_point2, np.array([[1]])), axis=0))
@@ -493,12 +591,43 @@ class AppForm(QMainWindow):
 
             L3_point0 = np.array([[0], [0], [0]])
             L3_point1 = np.array([[0], [0], [+L5]])
+            L3_point2 = np.array([[0], [-L6], [+L5]])
             L3_point0_transformed = j3_T.dot(np.concatenate((L3_point0, np.array([[1]])), axis=0))
             L3_point1_transformed = j3_T.dot(np.concatenate((L3_point1, np.array([[1]])), axis=0))
-            L3_x = [L3_point0_transformed[0][0], L3_point1_transformed[0][0]]
-            L3_y = [L3_point0_transformed[1][0], L3_point1_transformed[1][0]]
-            L3_z = [L3_point0_transformed[2][0], L3_point1_transformed[2][0]]
+            L3_point2_transformed = j3_T.dot(np.concatenate((L3_point2, np.array([[1]])), axis=0))
+            L3_x = [L3_point0_transformed[0][0], L3_point1_transformed[0][0], L3_point2_transformed[0][0]]
+            L3_y = [L3_point0_transformed[1][0], L3_point1_transformed[1][0], L3_point2_transformed[1][0]]
+            L3_z = [L3_point0_transformed[2][0], L3_point1_transformed[2][0], L3_point2_transformed[2][0]]
             self.axes.plot(L3_x, L3_y, L3_z, color=(0,0,0,1.0), linewidth=3.5)
+
+            L4_point0 = np.array([[0], [0], [0]])
+            L4_point1 = np.array([[0], [0], [+L7]])
+            L4_point0_transformed = j4_T.dot(np.concatenate((L4_point0, np.array([[1]])), axis=0))
+            L4_point1_transformed = j4_T.dot(np.concatenate((L4_point1, np.array([[1]])), axis=0))
+            L4_x = [L4_point0_transformed[0][0], L4_point1_transformed[0][0]]
+            L4_y = [L4_point0_transformed[1][0], L4_point1_transformed[1][0]]
+            L4_z = [L4_point0_transformed[2][0], L4_point1_transformed[2][0]]
+            self.axes.plot(L4_x, L4_y, L4_z, color=(0.5,0.5,0.5,1.0), linewidth=3.5)
+
+            L5_point0 = np.array([[0], [0], [0]])
+            L5_point1 = np.array([[0], [0], [+L8]])
+            L5_point2 = np.array([[+L9], [0], [+L8]])
+            L5_point0_transformed = j5_T.dot(np.concatenate((L5_point0, np.array([[1]])), axis=0))
+            L5_point1_transformed = j5_T.dot(np.concatenate((L5_point1, np.array([[1]])), axis=0))
+            L5_point2_transformed = j5_T.dot(np.concatenate((L5_point2, np.array([[1]])), axis=0))
+            L5_x = [L5_point0_transformed[0][0], L5_point1_transformed[0][0], L5_point2_transformed[0][0]]
+            L5_y = [L5_point0_transformed[1][0], L5_point1_transformed[1][0], L5_point2_transformed[1][0]]
+            L5_z = [L5_point0_transformed[2][0], L5_point1_transformed[2][0], L5_point2_transformed[2][0]]
+            self.axes.plot(L5_x, L5_y, L5_z, color=(0,0,0,1.0), linewidth=3.5)
+
+            L6_point0 = np.array([[0], [0], [0]])
+            L6_point1 = np.array([[+L10], [0], [0]])
+            L6_point0_transformed = j6_T.dot(np.concatenate((L6_point0, np.array([[1]])), axis=0))
+            L6_point1_transformed = j6_T.dot(np.concatenate((L6_point1, np.array([[1]])), axis=0))
+            L6_x = [L6_point0_transformed[0][0], L6_point1_transformed[0][0]]
+            L6_y = [L6_point0_transformed[1][0], L6_point1_transformed[1][0]]
+            L6_z = [L6_point0_transformed[2][0], L6_point1_transformed[2][0]]
+            self.axes.plot(L6_x, L6_y, L6_z, color=(0.5,0.5,0.5,1.0), linewidth=3.5)
 
             # these are just to scale arrows of different coordinate systems to better distinguish between them
             scale_small = 0.25
@@ -512,22 +641,34 @@ class AppForm(QMainWindow):
             self.axes.quiver(self.quiver_J1p[0], self.quiver_J1p[1], self.quiver_J1p[2], scale_medium*(self.quiver_J1z[0]-self.quiver_J1p[0]), scale_medium*(self.quiver_J1z[1]-self.quiver_J1p[1]), scale_medium*(self.quiver_J1z[2]-self.quiver_J1p[2]), color=['b'], arrow_length_ratio=0.15)
             self.axes.quiver(self.quiver_J2p[0], self.quiver_J2p[1], self.quiver_J2p[2], scale_medium*(self.quiver_J2x[0]-self.quiver_J2p[0]), scale_medium*(self.quiver_J2x[1]-self.quiver_J2p[1]), scale_medium*(self.quiver_J2x[2]-self.quiver_J2p[2]), color=['r'], arrow_length_ratio=0.15)
             self.axes.quiver(self.quiver_J2p[0], self.quiver_J2p[1], self.quiver_J2p[2], scale_medium*(self.quiver_J2y[0]-self.quiver_J2p[0]), scale_medium*(self.quiver_J2y[1]-self.quiver_J2p[1]), scale_medium*(self.quiver_J2y[2]-self.quiver_J2p[2]), color=['g'], arrow_length_ratio=0.15)
-            self.axes.quiver(self.quiver_J2p[0], self.quiver_J2p[1], self.quiver_J2p[2], scale_medium*(self.quiver_J2z[0]-self.quiver_J2p[0]), scale_medium*(self.quiver_J2z[1]-self.quiver_J2p[1]), scale_medium*(self.quiver_J2z[2]-self.quiver_J2p[2]), color=['b'], arrow_length_ratio=0.15)
+            self.axes.quiver(self.quiver_J2p[0], self.quiver_J2p[1], self.quiver_J2p[2], scale_medium*(self.quiver_J2z[0]-self.quiver_J2p[0]), scale_medium*(self.quiver_J2z[1]-self.quiver_J2p[1]), scale_medium*(self.quiver_J2z[2]-self.quiver_J2p[2]), color=['b'], arrow_length_ratio=0.15)         
             self.axes.quiver(self.quiver_J3p[0], self.quiver_J3p[1], self.quiver_J3p[2], scale_medium*(self.quiver_J3x[0]-self.quiver_J3p[0]), scale_medium*(self.quiver_J3x[1]-self.quiver_J3p[1]), scale_medium*(self.quiver_J3x[2]-self.quiver_J3p[2]), color=['r'], arrow_length_ratio=0.15)
             self.axes.quiver(self.quiver_J3p[0], self.quiver_J3p[1], self.quiver_J3p[2], scale_medium*(self.quiver_J3y[0]-self.quiver_J3p[0]), scale_medium*(self.quiver_J3y[1]-self.quiver_J3p[1]), scale_medium*(self.quiver_J3y[2]-self.quiver_J3p[2]), color=['g'], arrow_length_ratio=0.15)
             self.axes.quiver(self.quiver_J3p[0], self.quiver_J3p[1], self.quiver_J3p[2], scale_medium*(self.quiver_J3z[0]-self.quiver_J3p[0]), scale_medium*(self.quiver_J3z[1]-self.quiver_J3p[1]), scale_medium*(self.quiver_J3z[2]-self.quiver_J3p[2]), color=['b'], arrow_length_ratio=0.15)
+            self.axes.quiver(self.quiver_J4p[0], self.quiver_J4p[1], self.quiver_J4p[2], scale_medium*(self.quiver_J4x[0]-self.quiver_J4p[0]), scale_medium*(self.quiver_J4x[1]-self.quiver_J4p[1]), scale_medium*(self.quiver_J4x[2]-self.quiver_J4p[2]), color=['r'], arrow_length_ratio=0.15)
+            self.axes.quiver(self.quiver_J4p[0], self.quiver_J4p[1], self.quiver_J4p[2], scale_medium*(self.quiver_J4y[0]-self.quiver_J4p[0]), scale_medium*(self.quiver_J4y[1]-self.quiver_J4p[1]), scale_medium*(self.quiver_J4y[2]-self.quiver_J4p[2]), color=['g'], arrow_length_ratio=0.15)
+            self.axes.quiver(self.quiver_J4p[0], self.quiver_J4p[1], self.quiver_J4p[2], scale_medium*(self.quiver_J4z[0]-self.quiver_J4p[0]), scale_medium*(self.quiver_J4z[1]-self.quiver_J4p[1]), scale_medium*(self.quiver_J4z[2]-self.quiver_J4p[2]), color=['b'], arrow_length_ratio=0.15)
+            self.axes.quiver(self.quiver_J5p[0], self.quiver_J5p[1], self.quiver_J5p[2], scale_medium*(self.quiver_J5x[0]-self.quiver_J5p[0]), scale_medium*(self.quiver_J5x[1]-self.quiver_J5p[1]), scale_medium*(self.quiver_J5x[2]-self.quiver_J5p[2]), color=['r'], arrow_length_ratio=0.15)
+            self.axes.quiver(self.quiver_J5p[0], self.quiver_J5p[1], self.quiver_J5p[2], scale_medium*(self.quiver_J5y[0]-self.quiver_J5p[0]), scale_medium*(self.quiver_J5y[1]-self.quiver_J5p[1]), scale_medium*(self.quiver_J5y[2]-self.quiver_J5p[2]), color=['g'], arrow_length_ratio=0.15)
+            self.axes.quiver(self.quiver_J5p[0], self.quiver_J5p[1], self.quiver_J5p[2], scale_medium*(self.quiver_J5z[0]-self.quiver_J5p[0]), scale_medium*(self.quiver_J5z[1]-self.quiver_J5p[1]), scale_medium*(self.quiver_J5z[2]-self.quiver_J5p[2]), color=['b'], arrow_length_ratio=0.15)
+            self.axes.quiver(self.quiver_J6p[0], self.quiver_J6p[1], self.quiver_J6p[2], scale_medium*(self.quiver_J6x[0]-self.quiver_J6p[0]), scale_medium*(self.quiver_J6x[1]-self.quiver_J6p[1]), scale_medium*(self.quiver_J6x[2]-self.quiver_J6p[2]), color=['r'], arrow_length_ratio=0.15)
+            self.axes.quiver(self.quiver_J6p[0], self.quiver_J6p[1], self.quiver_J6p[2], scale_medium*(self.quiver_J6y[0]-self.quiver_J6p[0]), scale_medium*(self.quiver_J6y[1]-self.quiver_J6p[1]), scale_medium*(self.quiver_J6y[2]-self.quiver_J6p[2]), color=['g'], arrow_length_ratio=0.15)
+            self.axes.quiver(self.quiver_J6p[0], self.quiver_J6p[1], self.quiver_J6p[2], scale_medium*(self.quiver_J6z[0]-self.quiver_J6p[0]), scale_medium*(self.quiver_J6z[1]-self.quiver_J6p[1]), scale_medium*(self.quiver_J6z[2]-self.quiver_J6p[2]), color=['b'], arrow_length_ratio=0.15)
             self.axes.quiver(self.quiver_Ep[0], self.quiver_Ep[1], self.quiver_Ep[2], scale_full*(self.quiver_Ex[0]-self.quiver_Ep[0]), scale_full*(self.quiver_Ex[1]-self.quiver_Ep[1]), scale_full*(self.quiver_Ex[2]-self.quiver_Ep[2]), color=['r'], arrow_length_ratio=0.15)
             self.axes.quiver(self.quiver_Ep[0], self.quiver_Ep[1], self.quiver_Ep[2], scale_full*(self.quiver_Ey[0]-self.quiver_Ep[0]), scale_full*(self.quiver_Ey[1]-self.quiver_Ep[1]), scale_full*(self.quiver_Ey[2]-self.quiver_Ep[2]), color=['g'], arrow_length_ratio=0.15)
             self.axes.quiver(self.quiver_Ep[0], self.quiver_Ep[1], self.quiver_Ep[2], scale_full*(self.quiver_Ez[0]-self.quiver_Ep[0]), scale_full*(self.quiver_Ez[1]-self.quiver_Ep[1]), scale_full*(self.quiver_Ez[2]-self.quiver_Ep[2]), color=['b'], arrow_length_ratio=0.15)
-            self.axes.set_xlim(-2.0, 2.0)
-            self.axes.set_ylim(-2.0, 2.0)
-            self.axes.set_zlim(-2.0, 2.0)
+            self.axes.set_xlim(-3.0, 3.0)
+            self.axes.set_ylim(-3.0, 3.0)
+            self.axes.set_zlim(-3.0, 3.0)
 
             # Jacobian
-            J_3_E = S3
-            J_2_E = RigidBodyDynamics.AdjointMap(RigidBodyDynamics.Inverse( e_S3Matrix_theta3 )).dot(S2)
-            J_1_E = RigidBodyDynamics.AdjointMap(RigidBodyDynamics.Inverse( e_S2Matrix_theta2.dot(e_S3Matrix_theta3) )).dot(S1)
-            J_E = np.concatenate((J_1_E, J_2_E, J_3_E), axis=1)
+            J_6_E = S6
+            J_5_E = RigidBodyDynamics.AdjointMap(RigidBodyDynamics.Inverse( e_S6Matrix_theta6 )).dot(S5)
+            J_4_E = RigidBodyDynamics.AdjointMap(RigidBodyDynamics.Inverse( e_S5Matrix_theta5.dot(e_S6Matrix_theta6) )).dot(S4)
+            J_3_E = RigidBodyDynamics.AdjointMap(RigidBodyDynamics.Inverse( (e_S4Matrix_theta4.dot(e_S5Matrix_theta5)).dot(e_S6Matrix_theta6) )).dot(S3)
+            J_2_E = RigidBodyDynamics.AdjointMap(RigidBodyDynamics.Inverse( ((e_S3Matrix_theta3.dot(e_S4Matrix_theta4)).dot(e_S5Matrix_theta5)).dot(e_S6Matrix_theta6) )).dot(S2)
+            J_1_E = RigidBodyDynamics.AdjointMap(RigidBodyDynamics.Inverse( (((e_S2Matrix_theta2.dot(e_S3Matrix_theta3)).dot(e_S4Matrix_theta4)).dot(e_S5Matrix_theta5)).dot(e_S6Matrix_theta6) )).dot(S1)
+            J_E = np.concatenate((J_1_E, J_2_E, J_3_E, J_4_E, J_5_E, J_6_E), axis=1)
 
             #if np.linalg.cond( J_E.dot(np.transpose(J_E)) ) < 1/sys.float_info.epsilon:
             #    print("Non Singular")
@@ -621,12 +762,12 @@ class AppForm(QMainWindow):
             self.scenario = 1
             self.rb_fk0.setChecked(False)
 
-            self.cbx_theta_4.setEnabled(False)
-            self.sld_theta_4.setEnabled(False)
-            self.cbx_theta_5.setEnabled(False)
-            self.sld_theta_5.setEnabled(False)
-            self.cbx_theta_6.setEnabled(False)
-            self.sld_theta_6.setEnabled(False)
+            self.cbx_theta_4.setEnabled(True)
+            self.sld_theta_4.setEnabled(True)
+            self.cbx_theta_5.setEnabled(True)
+            self.sld_theta_5.setEnabled(True)
+            self.cbx_theta_6.setEnabled(True)
+            self.sld_theta_6.setEnabled(True)
 
         #self.on_draw()
 
@@ -687,8 +828,8 @@ class AppForm(QMainWindow):
         self.connect(self.cbx_theta_4, SIGNAL('stateChanged(int)'), self.on_update_values)
 
         self.sld_theta_4 = DoubleSlider(Qt.Horizontal)
-        self.sld_theta_4.setMinimum(-1.0)
-        self.sld_theta_4.setMaximum(1.0)
+        self.sld_theta_4.setMinimum(-180.0)
+        self.sld_theta_4.setMaximum(180.0)
         self.sld_theta_4.setValue(0.0)
         self.sld_theta_4.setTracking(True)
         self.sld_theta_4.setTickPosition(QSlider.TicksBelow)
@@ -699,8 +840,8 @@ class AppForm(QMainWindow):
         self.connect(self.cbx_theta_5, SIGNAL('stateChanged(int)'), self.on_update_values)
 
         self.sld_theta_5 = DoubleSlider(Qt.Horizontal)
-        self.sld_theta_5.setMinimum(-1.0)
-        self.sld_theta_5.setMaximum(1.0)
+        self.sld_theta_5.setMinimum(-180.0)
+        self.sld_theta_5.setMaximum(180.0)
         self.sld_theta_5.setValue(0.0)
         self.sld_theta_5.setTracking(True)
         self.sld_theta_5.setTickPosition(QSlider.TicksBelow)
@@ -711,8 +852,8 @@ class AppForm(QMainWindow):
         self.connect(self.cbx_theta_6, SIGNAL('stateChanged(int)'), self.on_update_values)
 
         self.sld_theta_6 = DoubleSlider(Qt.Horizontal)
-        self.sld_theta_6.setMinimum(-1.0)
-        self.sld_theta_6.setMaximum(1.0)
+        self.sld_theta_6.setMinimum(-180.0)
+        self.sld_theta_6.setMaximum(180.0)
         self.sld_theta_6.setValue(0.0)
         self.sld_theta_6.setTracking(True)
         self.sld_theta_6.setTickPosition(QSlider.TicksBelow)
@@ -742,17 +883,17 @@ class AppForm(QMainWindow):
             hbox_theta3.setAlignment(w, Qt.AlignVCenter)
 
         hbox_theta4 = QHBoxLayout()
-        for w in [ self.cbx_theta_4, QLabel('θ4'), QLabel('-1'), self.sld_theta_4, QLabel('1')]:
+        for w in [ self.cbx_theta_4, QLabel('θ4'), QLabel('-180'), self.sld_theta_4, QLabel('180')]:
             hbox_theta4.addWidget(w)
             hbox_theta4.setAlignment(w, Qt.AlignVCenter)
 
         hbox_theta5 = QHBoxLayout()
-        for w in [ self.cbx_theta_5, QLabel('θ5'), QLabel('-1'), self.sld_theta_5, QLabel('1')]:
+        for w in [ self.cbx_theta_5, QLabel('θ5'), QLabel('-180'), self.sld_theta_5, QLabel('180')]:
             hbox_theta5.addWidget(w)
             hbox_theta5.setAlignment(w, Qt.AlignVCenter)
 
         hbox_theta6 = QHBoxLayout()
-        for w in [ self.cbx_theta_6, QLabel('θ6'), QLabel('-1'), self.sld_theta_6, QLabel('1')]:
+        for w in [ self.cbx_theta_6, QLabel('θ6'), QLabel('-180'), self.sld_theta_6, QLabel('180')]:
             hbox_theta6.addWidget(w)
             hbox_theta6.setAlignment(w, Qt.AlignVCenter)
 
