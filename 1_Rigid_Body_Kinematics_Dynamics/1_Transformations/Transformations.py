@@ -2,6 +2,7 @@ import sys, os, random
 import numpy as np
 
 from transforms3d import *  #supersedes deprecated transformations.py
+from transforms3d import _gohlketransforms
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
@@ -122,6 +123,7 @@ class AppForm(QMainWindow):
     def on_draw(self):
         self.axes.clear()        
         self.axes.grid(True)
+        self.extraaxes.clear()
 
         if self.scenario == 0:
             # Rotation sequence around z-y-x-axes (post-multiply, each sequential rotation w.r.t. Body Frame)
@@ -155,6 +157,7 @@ class AppForm(QMainWindow):
             # these are just to scale arrows of different coordinate systems to better distinguish between them
             scale_small = 0.25
             scale_full = 1.0
+            self.axes.set_title('Rotation', fontsize = 8)
             self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], scale_small*self.quiver_Sx[0], scale_small*self.quiver_Sx[1], scale_small*self.quiver_Sx[2], color=['r'], arrow_length_ratio=0.15)
             self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], scale_small*self.quiver_Sy[0], scale_small*self.quiver_Sy[1], scale_small*self.quiver_Sy[2], color=['g'], arrow_length_ratio=0.15)
             self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], scale_small*self.quiver_Sz[0], scale_small*self.quiver_Sz[1], scale_small*self.quiver_Sz[2], color=['b'], arrow_length_ratio=0.15)
@@ -164,6 +167,18 @@ class AppForm(QMainWindow):
             self.axes.set_xlim(-1.0, 1.0)
             self.axes.set_ylim(-1.0, 1.0)
             self.axes.set_zlim(-1.0, 1.0)
+
+            B_q = _gohlketransforms.quaternion_from_matrix(B_R)
+        
+            self.extraaxes.set_title('Quaternion', fontsize = 8)
+            self.extraaxes.set_xlim(-1.1, 1.1)
+            self.extraaxes.barh(('q_w', 'q_x', 'q_y', 'q_z'), B_q, xerr=np.zeros(4), align='center')
+            self.extraaxes.invert_yaxis()  # labels read top-to-bottom
+
+            B_omega, B_theta = axangles.mat2axangle(B_R)
+            if np.absolute(B_theta) > 1e-6:
+                self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], 2.0*B_omega[0], 2.0*B_omega[1], 2.0*B_omega[2], color=['k'], arrow_length_ratio=0.0)
+
 
         elif self.scenario == 1:
             # Post-multiply, rotation w.r.t. Body Frame
@@ -207,6 +222,7 @@ class AppForm(QMainWindow):
             scale_small = 0.25
             scale_medium = 0.5
             scale_full = 1.0
+            self.axes.set_title('Composing w.r.t Body Frame: Post-Multiplying a z:[45deg],y:[30deg],x:[15deg] Rotation', fontsize = 8)
             self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], scale_small*self.quiver_Sx[0], scale_small*self.quiver_Sx[1], scale_small*self.quiver_Sx[2], color=['r'], arrow_length_ratio=0.15)
             self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], scale_small*self.quiver_Sy[0], scale_small*self.quiver_Sy[1], scale_small*self.quiver_Sy[2], color=['g'], arrow_length_ratio=0.15)
             self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], scale_small*self.quiver_Sz[0], scale_small*self.quiver_Sz[1], scale_small*self.quiver_Sz[2], color=['b'], arrow_length_ratio=0.15)
@@ -262,6 +278,7 @@ class AppForm(QMainWindow):
             scale_small = 0.25
             scale_medium = 0.5
             scale_full = 1.0
+            self.axes.set_title('Composing w.r.t Space Frame: Pre-Multiplying a z:[45deg],y:[30deg],x:[15deg] Rotation', fontsize = 8)
             self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], scale_small*self.quiver_Sx[0], scale_small*self.quiver_Sx[1], scale_small*self.quiver_Sx[2], color=['r'], arrow_length_ratio=0.15)
             self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], scale_small*self.quiver_Sy[0], scale_small*self.quiver_Sy[1], scale_small*self.quiver_Sy[2], color=['g'], arrow_length_ratio=0.15)
             self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], scale_small*self.quiver_Sz[0], scale_small*self.quiver_Sz[1], scale_small*self.quiver_Sz[2], color=['b'], arrow_length_ratio=0.15)
@@ -315,6 +332,7 @@ class AppForm(QMainWindow):
             # these are just to scale arrows of different coordinate systems to better distinguish between them
             scale_small = 0.25
             scale_full = 1.0
+            self.axes.set_title('Homogeneous Transformation', fontsize = 8)
             self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], scale_small*self.quiver_Sx[0], scale_small*self.quiver_Sx[1], scale_small*self.quiver_Sx[2], color=['r'], arrow_length_ratio=0.15)
             self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], scale_small*self.quiver_Sy[0], scale_small*self.quiver_Sy[1], scale_small*self.quiver_Sy[2], color=['g'], arrow_length_ratio=0.15)
             self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], scale_small*self.quiver_Sz[0], scale_small*self.quiver_Sz[1], scale_small*self.quiver_Sz[2], color=['b'], arrow_length_ratio=0.15)
@@ -386,6 +404,7 @@ class AppForm(QMainWindow):
             scale_small = 0.25
             scale_medium = 0.5
             scale_full = 1.0
+            self.axes.set_title('Composing w.r.t Body Frame: Post-Multiplying a Rot_zyx=[45,30,15]deg, Trans_xyz=[0.5,0.25,0.75]m', fontsize = 8)
             self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], scale_small*self.quiver_Sx[0], scale_small*self.quiver_Sx[1], scale_small*self.quiver_Sx[2], color=['r'], arrow_length_ratio=0.15)
             self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], scale_small*self.quiver_Sy[0], scale_small*self.quiver_Sy[1], scale_small*self.quiver_Sy[2], color=['g'], arrow_length_ratio=0.15)
             self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], scale_small*self.quiver_Sz[0], scale_small*self.quiver_Sz[1], scale_small*self.quiver_Sz[2], color=['b'], arrow_length_ratio=0.15)
@@ -460,6 +479,7 @@ class AppForm(QMainWindow):
             scale_small = 0.25
             scale_medium = 0.5
             scale_full = 1.0
+            self.axes.set_title('Composing w.r.t Space Frame: Pre-Multiplying a Rot_zyx=[45,30,15]deg, Trans_xyz=[0.5,0.25,0.75]m', fontsize = 8)
             self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], scale_small*self.quiver_Sx[0], scale_small*self.quiver_Sx[1], scale_small*self.quiver_Sx[2], color=['r'], arrow_length_ratio=0.15)
             self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], scale_small*self.quiver_Sy[0], scale_small*self.quiver_Sy[1], scale_small*self.quiver_Sy[2], color=['g'], arrow_length_ratio=0.15)
             self.axes.quiver(self.S_p[0], self.S_p[1], self.S_p[2], scale_small*self.quiver_Sz[0], scale_small*self.quiver_Sz[1], scale_small*self.quiver_Sz[2], color=['b'], arrow_length_ratio=0.15)
@@ -516,6 +536,8 @@ class AppForm(QMainWindow):
             self.sld_py.setEnabled(False)
             self.cbx_pz.setEnabled(False)
             self.sld_pz.setEnabled(False)
+
+            self.extraaxes.set_visible(True)
         elif self.rb_r1.isChecked() and self.scenario != 1:
             self.scenario = 1
             self.rb_r0.setChecked(False)
@@ -530,6 +552,8 @@ class AppForm(QMainWindow):
             self.sld_py.setEnabled(False)
             self.cbx_pz.setEnabled(False)
             self.sld_pz.setEnabled(False)
+
+            self.extraaxes.set_visible(False)
         elif self.rb_r2.isChecked() and self.scenario != 2:
             self.scenario = 2
             self.rb_r0.setChecked(False)
@@ -544,6 +568,8 @@ class AppForm(QMainWindow):
             self.sld_py.setEnabled(False)
             self.cbx_pz.setEnabled(False)
             self.sld_pz.setEnabled(False)
+
+            self.extraaxes.set_visible(False)
         elif self.rb_p0.isChecked() and self.scenario != 3:
             self.scenario = 3
             self.rb_r0.setChecked(False)
@@ -558,6 +584,8 @@ class AppForm(QMainWindow):
             self.sld_py.setEnabled(True)
             self.cbx_pz.setEnabled(True)
             self.sld_pz.setEnabled(True)
+
+            self.extraaxes.set_visible(False)
         elif self.rb_p1.isChecked() and self.scenario != 4:
             self.scenario = 4
             self.rb_r0.setChecked(False)
@@ -572,6 +600,8 @@ class AppForm(QMainWindow):
             self.sld_py.setEnabled(True)
             self.cbx_pz.setEnabled(True)
             self.sld_pz.setEnabled(True)
+
+            self.extraaxes.set_visible(False)
         elif self.rb_p2.isChecked() and self.scenario != 5:
             self.scenario = 5
             self.rb_r0.setChecked(False)
@@ -587,6 +617,8 @@ class AppForm(QMainWindow):
             self.cbx_pz.setEnabled(True)
             self.sld_pz.setEnabled(True)
 
+            self.extraaxes.set_visible(False)
+
         self.on_draw()
 
     def create_main_frame(self):
@@ -598,7 +630,9 @@ class AppForm(QMainWindow):
         self.canvas.setParent(self.main_frame)
         
         self.axes = self.fig.add_subplot(111, projection='3d', proj_type='ortho')
-        self.axes.set_aspect('equal')
+        self.axes.set_aspect(aspect=1)
+        self.extraaxes = self.fig.add_subplot(241)
+        self.extraaxes.set_visible(True)
         self.mpl_toolbar = NavigationToolbar(self.canvas, self.main_frame)
         
 
