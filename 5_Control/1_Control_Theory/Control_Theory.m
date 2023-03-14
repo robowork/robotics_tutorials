@@ -112,7 +112,7 @@ bode(G_nonminphase,opts);
 legend('G\_minphase','G\_inputdelay','G\_nonminphase');
 hold off;
 
-%% Control
+%% PID Control
 I_yy = 0.1;
 
 pitch = 1/(I_yy*s^2)
@@ -140,3 +140,60 @@ step(pitch_PID,30);
 set(gca,'ylim',[-10 10]);
 legend('open','P','PD','PI','PID');
 hold off;
+
+%% State-Space
+m = 1;
+k = 1;
+b = 1;
+
+A = [0   1;
+    -k/m -b/m]
+B = [0; 
+     1/m]
+C = [1 0;
+     0 1]
+D = [0;
+     0]
+
+harmonic_oscillator = ss(A,B,C,D)
+
+figure;
+step(harmonic_oscillator)
+legend('harmonic\_oscillator');
+
+figure;
+impulse(harmonic_oscillator)
+legend('harmonic\_oscillator');
+
+[numerator,denominator] = ss2tf(A,B,C,D)
+output1_tf = tf(numerator(1,:),denominator)
+output2_tf = tf(numerator(2,:),denominator)
+
+% Eigenvectors,Eigenvalues
+[eigenvectors,eigenvalues] = eig(harmonic_oscillator.A)
+eigenvector1 = eigenvectors(:,1)
+eigenvector2 = eigenvectors(:,2)
+eigenvalue1 = eigenvalues(1,1)
+eigenvalue2 = eigenvalues(2,2)
+harmonic_oscillator.A*[eigenvector1 eigenvector2] - [eigenvector1 eigenvector2]*diag([eigenvalue1 eigenvalue2])  %check equality (should be close to 0 matrix)
+pole(output1_tf) - [eigenvalue1;eigenvalue2]  %check equality (should be close to 0 column)
+pole(output2_tf) - [eigenvalue1;eigenvalue2]  %check equality (should be close to 0 column)
+
+% Stability
+real([eigenvalue1 eigenvalue2])  %check stability (should all be <0)
+
+[harmonic_oscillator_rows,harmonic_oscillator_cols] = size(harmonic_oscillator.A);
+
+% Controlability
+C_ctrb = ctrb(harmonic_oscillator)
+rank(C_ctrb) == harmonic_oscillator_cols  % controllable
+
+% Note: How to check for stabilizability IF system is not controllable
+% [harmonic_oscillator_stable,harmonic_oscillator_unstable] = stabsep(harmonic_oscillator)
+% [dynamics_ss_unstable_rows,dynamics_ss_unstable_cols] = size(harmonic_oscillator.A);
+% C_stab = ctrb(harmonic_oscillator_unstable)
+% rank(C_stab) == dynamics_ss_unstable_cols  % stabilizable ?
+
+% Observability
+O_obsv = obsv(harmonic_oscillator)
+rank(O_obsv) == harmonic_oscillator_cols  % observable
