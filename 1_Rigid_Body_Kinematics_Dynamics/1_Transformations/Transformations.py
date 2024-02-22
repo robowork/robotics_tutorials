@@ -4,16 +4,19 @@ import numpy as np
 from transforms3d import *  #supersedes deprecated transformations.py
 from transforms3d import _gohlketransforms
 
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+
+from PyQt6.QtCore import *
+from PyQt6.QtGui import *
+
 
 import matplotlib as plt
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
+
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 
 from mpl_toolkits import mplot3d
-
+from PyQt6.QtWidgets import *
 
 class DoubleSlider(QSlider):
 
@@ -630,7 +633,7 @@ class AppForm(QMainWindow):
         self.canvas.setParent(self.main_frame)
         
         self.axes = self.fig.add_subplot(111, projection='3d', proj_type='ortho')
-        self.axes.set_aspect(aspect=1)
+        self.axes.set_aspect('equal')
         self.extraaxes = self.fig.add_subplot(241)
         self.extraaxes.set_visible(True)
         self.mpl_toolbar = NavigationToolbar(self.canvas, self.main_frame)
@@ -645,134 +648,134 @@ class AppForm(QMainWindow):
         
         self.cbx_rx = QCheckBox('reset')
         self.cbx_rx.setChecked(False)
-        self.connect(self.cbx_rx, SIGNAL('stateChanged(int)'), self.on_update_values)
+        self.cbx_rx.stateChanged.connect(self.on_update_values)
         
-        self.sld_rx = DoubleSlider(Qt.Horizontal)
+        self.sld_rx = DoubleSlider(Qt.Orientation.Horizontal)
         self.sld_rx.setMinimum(-180.0)
         self.sld_rx.setMaximum(180.0)
         self.sld_rx.setValue(0.0)
         self.sld_rx.setTracking(True)
-        self.sld_rx.setTickPosition(QSlider.TicksBelow)
-        self.connect(self.sld_rx, SIGNAL('valueChanged(int)'), self.on_update_values)
+        self.sld_rx.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.sld_rx.valueChanged.connect(self.on_update_values)
         
         self.cbx_ry = QCheckBox('reset')
         self.cbx_ry.setChecked(False)
-        self.connect(self.cbx_ry, SIGNAL('stateChanged(int)'), self.on_update_values)
+        self.cbx_ry.stateChanged.connect(self.on_update_values)
 
-        self.sld_ry = DoubleSlider(Qt.Horizontal)
+        self.sld_ry = DoubleSlider(Qt.Orientation.Horizontal)
         self.sld_ry.setMinimum(-180.0)
         self.sld_ry.setMaximum(180.0)
         self.sld_ry.setValue(0.0)
         self.sld_ry.setTracking(True)
-        self.sld_ry.setTickPosition(QSlider.TicksBelow)
-        self.connect(self.sld_ry, SIGNAL('valueChanged(int)'), self.on_update_values)
+        self.sld_ry.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.sld_ry.valueChanged.connect(self.on_update_values)
 
         self.cbx_rz = QCheckBox('reset')
         self.cbx_rz.setChecked(False)
-        self.connect(self.cbx_rz, SIGNAL('stateChanged(int)'), self.on_update_values)
+        self.cbx_rz.stateChanged.connect(self.on_update_values)
 
-        self.sld_rz = DoubleSlider(Qt.Horizontal)
+        self.sld_rz = DoubleSlider(Qt.Orientation.Horizontal)
         self.sld_rz.setMinimum(-180.0)
         self.sld_rz.setMaximum(180.0)
         self.sld_rz.setValue(0.0)
         self.sld_rz.setTracking(True)
-        self.sld_rz.setTickPosition(QSlider.TicksBelow)
-        self.connect(self.sld_rz, SIGNAL('valueChanged(int)'), self.on_update_values)
+        self.sld_rz.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.sld_rz.valueChanged.connect(self.on_update_values)
 
         self.cbx_px = QCheckBox('reset')
         self.cbx_px.setChecked(False)
-        self.connect(self.cbx_px, SIGNAL('stateChanged(int)'), self.on_update_values)
+        self.cbx_px.stateChanged.connect(self.on_update_values)
 
-        self.sld_px = DoubleSlider(Qt.Horizontal)
+        self.sld_px = DoubleSlider(Qt.Orientation.Horizontal)
         self.sld_px.setMinimum(-1.0)
         self.sld_px.setMaximum(1.0)
         self.sld_px.setValue(0.0)
         self.sld_px.setTracking(True)
-        self.sld_px.setTickPosition(QSlider.TicksBelow)
-        self.connect(self.sld_px, SIGNAL('valueChanged(int)'), self.on_update_values)
+        self.sld_px.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.sld_px.valueChanged.connect(self.on_update_values)
 
         self.cbx_py = QCheckBox('reset')
         self.cbx_py.setChecked(False)
-        self.connect(self.cbx_py, SIGNAL('stateChanged(int)'), self.on_update_values)
+        self.cbx_py.stateChanged.connect(self.on_update_values)
 
-        self.sld_py = DoubleSlider(Qt.Horizontal)
+        self.sld_py = DoubleSlider(Qt.Orientation.Horizontal)
         self.sld_py.setMinimum(-1.0)
         self.sld_py.setMaximum(1.0)
         self.sld_py.setValue(0.0)
         self.sld_py.setTracking(True)
-        self.sld_py.setTickPosition(QSlider.TicksBelow)
-        self.connect(self.sld_py, SIGNAL('valueChanged(int)'), self.on_update_values)
+        self.sld_py.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.sld_py.valueChanged.connect(self.on_update_values)
 
         self.cbx_pz = QCheckBox('reset')
         self.cbx_pz.setChecked(False)
-        self.connect(self.cbx_pz, SIGNAL('stateChanged(int)'), self.on_update_values)
+        self.cbx_pz.stateChanged.connect(self.on_update_values) 
 
-        self.sld_pz = DoubleSlider(Qt.Horizontal)
+        self.sld_pz = DoubleSlider(Qt.Orientation.Horizontal)
         self.sld_pz.setMinimum(-1.0)
         self.sld_pz.setMaximum(1.0)
         self.sld_pz.setValue(0.0)
         self.sld_pz.setTracking(True)
-        self.sld_pz.setTickPosition(QSlider.TicksBelow)
-        self.connect(self.sld_pz, SIGNAL('valueChanged(int)'), self.on_update_values)
+        self.sld_pz.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.sld_pz.valueChanged.connect(self.on_update_values)
 
         self.rb_r0 = QCheckBox('Rot #1')
         self.rb_r0.setChecked(True)
-        self.connect(self.rb_r0, SIGNAL('stateChanged(int)'), self.on_update_values)
+        self.rb_r0.stateChanged.connect(self.on_update_values)
 
         self.rb_r1 = QCheckBox('Rot #2')
         self.rb_r1.setChecked(False)
-        self.connect(self.rb_r1, SIGNAL('stateChanged(int)'), self.on_update_values)
+        self.rb_r1.stateChanged.connect(self.on_update_values)
 
         self.rb_r2 = QCheckBox('Rot #3')
         self.rb_r2.setChecked(False)
-        self.connect(self.rb_r2, SIGNAL('stateChanged(int)'), self.on_update_values)
+        self.rb_r2.stateChanged.connect(self.on_update_values)
 
         self.rb_p0 = QCheckBox('Homog #1')
         self.rb_p0.setChecked(False)
-        self.connect(self.rb_p0, SIGNAL('stateChanged(int)'), self.on_update_values)
+        self.rb_p0.stateChanged.connect(self.on_update_values)
 
         self.rb_p1 = QCheckBox('Homog #2')
         self.rb_p1.setChecked(False)
-        self.connect(self.rb_p1, SIGNAL('stateChanged(int)'), self.on_update_values)
+        self.rb_p1.stateChanged.connect(self.on_update_values)
 
         self.rb_p2 = QCheckBox('Homog #3')
         self.rb_p2.setChecked(False)
-        self.connect(self.rb_p2, SIGNAL('stateChanged(int)'), self.on_update_values)
+        self.rb_p2.stateChanged.connect(self.on_update_values)
 
         hbox_Rx = QHBoxLayout()
         for w in [ self.cbx_rx, QLabel('Rx'), QLabel('-180'), self.sld_rx, QLabel('180')]:
             hbox_Rx.addWidget(w)
-            hbox_Rx.setAlignment(w, Qt.AlignVCenter)
+            hbox_Rx.setAlignment(w, Qt.AlignmentFlag.AlignVCenter)
 
         hbox_Ry = QHBoxLayout()
         for w in [ self.cbx_ry, QLabel('Ry'), QLabel('-180'), self.sld_ry, QLabel('180')]:
             hbox_Ry.addWidget(w)
-            hbox_Ry.setAlignment(w, Qt.AlignVCenter)
+            hbox_Ry.setAlignment(w, Qt.AlignmentFlag.AlignVCenter)
 
         hbox_Rz = QHBoxLayout()
         for w in [ self.cbx_rz, QLabel('Rz'), QLabel('-180'), self.sld_rz, QLabel('180')]:
             hbox_Rz.addWidget(w)
-            hbox_Rz.setAlignment(w, Qt.AlignVCenter)
+            hbox_Rz.setAlignment(w, Qt.AlignmentFlag.AlignVCenter)
 
         hbox_px = QHBoxLayout()
         for w in [ self.cbx_px, QLabel('px'), QLabel('-1'), self.sld_px, QLabel('1')]:
             hbox_px.addWidget(w)
-            hbox_px.setAlignment(w, Qt.AlignVCenter)
+            hbox_px.setAlignment(w, Qt.AlignmentFlag.AlignVCenter)
 
         hbox_py = QHBoxLayout()
         for w in [ self.cbx_py, QLabel('py'), QLabel('-1'), self.sld_py, QLabel('1')]:
             hbox_py.addWidget(w)
-            hbox_py.setAlignment(w, Qt.AlignVCenter)
+            hbox_py.setAlignment(w, Qt.AlignmentFlag.AlignVCenter)
 
         hbox_pz = QHBoxLayout()
         for w in [ self.cbx_pz, QLabel('pz'), QLabel('-1'), self.sld_pz, QLabel('1')]:
             hbox_pz.addWidget(w)
-            hbox_pz.setAlignment(w, Qt.AlignVCenter)
+            hbox_pz.setAlignment(w, Qt.AlignmentFlag.AlignVCenter)
 
         hbox_rb = QHBoxLayout()
         for w in [ self.rb_r0, self.rb_r1, self.rb_r2, self.rb_p0, self.rb_p1, self.rb_p2]:
             hbox_rb.addWidget(w)
-            hbox_rb.setAlignment(w, Qt.AlignVCenter)
+            hbox_rb.setAlignment(w, Qt.AlignmentFlag.AlignVCenter)
 
         vbox = QVBoxLayout()
         vbox.addLayout(hbox_Rx)
@@ -823,7 +826,7 @@ class AppForm(QMainWindow):
             action.setToolTip(tip)
             action.setStatusTip(tip)
         if slot is not None:
-            self.connect(action, SIGNAL(signal), slot)
+            action.triggered.connect(slot)
         if checkable:
             action.setCheckable(True)
         return action
@@ -833,8 +836,7 @@ def main():
     app = QApplication(sys.argv)
     form = AppForm()
     form.show()
-    app.exec_()
+    app.exec()
 
 if __name__ == "__main__":
     main()
-
