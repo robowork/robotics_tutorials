@@ -170,17 +170,18 @@ class AppForm(QMainWindow):
             if self.timer_value < 1e-3:
                 e_VMatrix_theta = np.eye(4)
             elif np.linalg.norm(Twist_B[0:3]) < 1e-6:
-                V = np.eye(3)
-                e_VMatrix_theta = np.concatenate((np.concatenate((np.eye(3), V.dot(Twist_B[3:6]) * self.timer_value), axis=1), \
+                G = np.eye(3) * self.timer_value
+                e_VMatrix_theta = np.concatenate((np.concatenate((np.eye(3), G.dot(Twist_B[3:6])), axis=1), \
                                                   np.array([[0, 0, 0, 1]])), axis=0)
             else:
                 omegaSkew = np.array([[ 0            , -Twist_B[2][0],  Twist_B[1][0]], \
                                       [ Twist_B[2][0],              0, -Twist_B[0][0]], \
-                                      [-Twist_B[1][0],  Twist_B[0][0],              0]]) * self.timer_value
-                theta = np.linalg.norm(Twist_B[0:3] * self.timer_value)
-                e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
-                V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
-                e_VMatrix_theta = np.concatenate((np.concatenate((e_omegaSkew, V.dot(Twist_B[3:6] * self.timer_value)), axis=1), \
+                                      [-Twist_B[1][0],  Twist_B[0][0],              0]])
+                omega_magnitude = np.linalg.norm(Twist_B[0:3])
+                theta = omega_magnitude * self.timer_value
+                e_omegaSkew = np.eye(3) + ( np.sin(theta)/omega_magnitude ) * omegaSkew + ( (1-np.cos(theta))/(omega_magnitude**2) ) * np.linalg.matrix_power(omegaSkew, 2)
+                G = np.eye(3) * self.timer_value + ( (1-np.cos(theta))/(omega_magnitude**2) ) * omegaSkew + ( (theta-np.sin(theta))/(omega_magnitude**3) ) * np.linalg.matrix_power(omegaSkew, 2)
+                e_VMatrix_theta = np.concatenate((np.concatenate((e_omegaSkew, G.dot(Twist_B[3:6])), axis=1), \
                                                   np.array([[0, 0, 0, 1]])), axis=0)
       
             B_T = B_T_zyx.dot(e_VMatrix_theta)  # Post-multiply
@@ -223,7 +224,7 @@ class AppForm(QMainWindow):
             self.quiver_By_zyx = B_T_zyx.dot(np.concatenate((self.quiver_Sy, np.array([[1]])), axis=0))
             self.quiver_Bz_zyx = B_T_zyx.dot(np.concatenate((self.quiver_Sz, np.array([[1]])), axis=0))
 
-            Twist_B = np.array([[np.deg2rad(self.val_omega_x)], \
+            Twist_S = np.array([[np.deg2rad(self.val_omega_x)], \
                                 [np.deg2rad(self.val_omega_y)], \
                                 [np.deg2rad(self.val_omega_z)], \
                                 [self.val_vel_x], \
@@ -232,17 +233,18 @@ class AppForm(QMainWindow):
 
             if self.timer_value < 1e-3:
                 e_VMatrix_theta = np.eye(4)
-            elif np.linalg.norm(Twist_B[0:3]) < 1e-6:
-                V = np.eye(3)
-                e_VMatrix_theta = np.concatenate((np.concatenate((np.eye(3), V.dot(Twist_B[3:6]) * self.timer_value), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
+            elif np.linalg.norm(Twist_S[0:3]) < 1e-6:
+                G = np.eye(3)* self.timer_value
+                e_VMatrix_theta = np.concatenate((np.concatenate((np.eye(3), G.dot(Twist_S[3:6])), axis=1), np.array([[0, 0, 0, 1]])), axis=0)
             else:
-                omegaSkew = np.array([[             0, -Twist_B[2][0],  Twist_B[1][0]], \
-                                      [ Twist_B[2][0],              0, -Twist_B[0][0]], \
-                                      [-Twist_B[1][0],  Twist_B[0][0],              0]]) * self.timer_value
-                theta = np.linalg.norm(Twist_B[0:3] * self.timer_value)
-                e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
-                V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
-                e_VMatrix_theta = np.concatenate((np.concatenate((e_omegaSkew, V.dot(Twist_B[3:6] * self.timer_value)), axis=1), \
+                omegaSkew = np.array([[ 0            , -Twist_S[2][0],  Twist_S[1][0]], \
+                                      [ Twist_S[2][0],              0, -Twist_S[0][0]], \
+                                      [-Twist_S[1][0],  Twist_S[0][0],              0]])
+                omega_magnitude = np.linalg.norm(Twist_S[0:3])
+                theta = omega_magnitude * self.timer_value
+                e_omegaSkew = np.eye(3) + ( np.sin(theta)/omega_magnitude ) * omegaSkew + ( (1-np.cos(theta))/(omega_magnitude**2) ) * np.linalg.matrix_power(omegaSkew, 2)
+                G = np.eye(3) * self.timer_value + ( (1-np.cos(theta))/(omega_magnitude**2) ) * omegaSkew + ( (theta-np.sin(theta))/(omega_magnitude**3) ) * np.linalg.matrix_power(omegaSkew, 2)
+                e_VMatrix_theta = np.concatenate((np.concatenate((e_omegaSkew, G.dot(Twist_S[3:6])), axis=1), \
                                                   np.array([[0, 0, 0, 1]])), axis=0)
       
             B_T = e_VMatrix_theta.dot(B_T_zyx)  # Pre-multiply

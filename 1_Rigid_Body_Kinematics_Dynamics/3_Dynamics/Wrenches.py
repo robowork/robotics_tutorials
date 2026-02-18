@@ -269,17 +269,18 @@ class AppForm(QMainWindow):
                                 [self.vel_z]])
 
             if np.linalg.norm(Twist_B[0:3]) < 1e-6:
-                V = np.eye(3)
-                e_VMatrix_theta = np.concatenate((np.concatenate((np.eye(3), V.dot(Twist_B[3:6]) * self.timer_period), axis=1), \
+                G_t = np.eye(3) * self.timer_period
+                e_VMatrix_theta = np.concatenate((np.concatenate((np.eye(3), G_t.dot(Twist_B[3:6])), axis=1), \
                                                   np.array([[0, 0, 0, 1]])), axis=0)
             else:
-                omegaSkew = np.array([[             0, -Twist_B[2][0],  Twist_B[1][0]], \
+                omegaSkew = np.array([[ 0            , -Twist_B[2][0],  Twist_B[1][0]], \
                                       [ Twist_B[2][0],              0, -Twist_B[0][0]], \
-                                      [-Twist_B[1][0],  Twist_B[0][0],              0]]) * self.timer_period
-                theta = np.linalg.norm(Twist_B[0:3] * self.timer_period)
-                e_omegaSkew = np.eye(3) + ( np.sin(theta)/theta ) * omegaSkew + ( (1-np.cos(theta))/(theta**2) ) * np.linalg.matrix_power(omegaSkew, 2)
-                V = np.eye(3) + ( (1-np.cos(theta))/(theta**2) ) * omegaSkew + ( (theta-np.sin(theta))/(theta**3) ) * np.linalg.matrix_power(omegaSkew, 2)
-                e_VMatrix_theta = np.concatenate((np.concatenate((e_omegaSkew, V.dot(Twist_B[3:6] * self.timer_period)), axis=1), \
+                                      [-Twist_B[1][0],  Twist_B[0][0],              0]])
+                omega_magnitude = np.linalg.norm(Twist_B[0:3])
+                theta = omega_magnitude * self.timer_period
+                e_omegaSkew = np.eye(3) + ( np.sin(theta)/omega_magnitude ) * omegaSkew + ( (1-np.cos(theta))/(omega_magnitude**2) ) * np.linalg.matrix_power(omegaSkew, 2)
+                G_t = np.eye(3) * self.timer_period + ( (1-np.cos(theta))/(omega_magnitude**2) ) * omegaSkew + ( (theta-np.sin(theta))/(omega_magnitude**3) ) * np.linalg.matrix_power(omegaSkew, 2)
+                e_VMatrix_theta = np.concatenate((np.concatenate((e_omegaSkew, G_t.dot(Twist_B[3:6])), axis=1), \
                                                   np.array([[0, 0, 0, 1]])), axis=0)
       
             # Forward kinematics - compute updated pose
@@ -468,8 +469,8 @@ class AppForm(QMainWindow):
         self.connect(self.cbx_fx, SIGNAL('stateChanged(int)'), self.on_update_values)
         
         self.sld_fx = DoubleSlider(Qt.Horizontal)
-        self.sld_fx.setMinimum(-10.0)
-        self.sld_fx.setMaximum(10.0)
+        self.sld_fx.setMinimum(-5.0)
+        self.sld_fx.setMaximum(5.0)
         self.sld_fx.setValue(0.0)
         self.sld_fx.setTracking(True)
         self.sld_fx.setTickPosition(QSlider.TicksBelow)
@@ -480,8 +481,8 @@ class AppForm(QMainWindow):
         self.connect(self.cbx_fy, SIGNAL('stateChanged(int)'), self.on_update_values)
 
         self.sld_fy = DoubleSlider(Qt.Horizontal)
-        self.sld_fy.setMinimum(-10.0)
-        self.sld_fy.setMaximum(10.0)
+        self.sld_fy.setMinimum(-5.0)
+        self.sld_fy.setMaximum(5.0)
         self.sld_fy.setValue(0.0)
         self.sld_fy.setTracking(True)
         self.sld_fy.setTickPosition(QSlider.TicksBelow)
@@ -492,8 +493,8 @@ class AppForm(QMainWindow):
         self.connect(self.cbx_fz, SIGNAL('stateChanged(int)'), self.on_update_values)
 
         self.sld_fz = DoubleSlider(Qt.Horizontal)
-        self.sld_fz.setMinimum(-10.0)
-        self.sld_fz.setMaximum(10.0)
+        self.sld_fz.setMinimum(-5.0)
+        self.sld_fz.setMaximum(5.0)
         self.sld_fz.setValue(0.0)
         self.sld_fz.setTracking(True)
         self.sld_fz.setTickPosition(QSlider.TicksBelow)
@@ -504,8 +505,8 @@ class AppForm(QMainWindow):
         self.connect(self.cbx_mx, SIGNAL('stateChanged(int)'), self.on_update_values)
 
         self.sld_mx = DoubleSlider(Qt.Horizontal)
-        self.sld_mx.setMinimum(-1.0)
-        self.sld_mx.setMaximum(1.0)
+        self.sld_mx.setMinimum(-0.5)
+        self.sld_mx.setMaximum(0.5)
         self.sld_mx.setValue(0.0)
         self.sld_mx.setTracking(True)
         self.sld_mx.setTickPosition(QSlider.TicksBelow)
@@ -516,8 +517,8 @@ class AppForm(QMainWindow):
         self.connect(self.cbx_my, SIGNAL('stateChanged(int)'), self.on_update_values)
 
         self.sld_my = DoubleSlider(Qt.Horizontal)
-        self.sld_my.setMinimum(-1.0)
-        self.sld_my.setMaximum(1.0)
+        self.sld_my.setMinimum(-0.5)
+        self.sld_my.setMaximum(0.5)
         self.sld_my.setValue(0.0)
         self.sld_my.setTracking(True)
         self.sld_my.setTickPosition(QSlider.TicksBelow)
@@ -528,8 +529,8 @@ class AppForm(QMainWindow):
         self.connect(self.cbx_mz, SIGNAL('stateChanged(int)'), self.on_update_values)
 
         self.sld_mz = DoubleSlider(Qt.Horizontal)
-        self.sld_mz.setMinimum(-1.0)
-        self.sld_mz.setMaximum(1.0)
+        self.sld_mz.setMinimum(-0.5)
+        self.sld_mz.setMaximum(0.5)
         self.sld_mz.setValue(0.0)
         self.sld_mz.setTracking(True)
         self.sld_mz.setTickPosition(QSlider.TicksBelow)
@@ -540,32 +541,32 @@ class AppForm(QMainWindow):
         self.connect(self.rb_t0, SIGNAL('stateChanged(int)'), self.on_update_values)
 
         hbox_Rx = QHBoxLayout()
-        for w in [ self.cbx_fx, QLabel('fx'), QLabel('-10'), self.sld_fx, QLabel('10')]:
+        for w in [ self.cbx_fx, QLabel('fx'), QLabel('-5'), self.sld_fx, QLabel('5')]:
             hbox_Rx.addWidget(w)
             hbox_Rx.setAlignment(w, Qt.AlignVCenter)
 
         hbox_Ry = QHBoxLayout()
-        for w in [ self.cbx_fy, QLabel('fy'), QLabel('-10'), self.sld_fy, QLabel('10')]:
+        for w in [ self.cbx_fy, QLabel('fy'), QLabel('-5'), self.sld_fy, QLabel('5')]:
             hbox_Ry.addWidget(w)
             hbox_Ry.setAlignment(w, Qt.AlignVCenter)
 
         hbox_Rz = QHBoxLayout()
-        for w in [ self.cbx_fz, QLabel('fz'), QLabel('-10'), self.sld_fz, QLabel('10')]:
+        for w in [ self.cbx_fz, QLabel('fz'), QLabel('-5'), self.sld_fz, QLabel('5')]:
             hbox_Rz.addWidget(w)
             hbox_Rz.setAlignment(w, Qt.AlignVCenter)
 
         hbox_px = QHBoxLayout()
-        for w in [ self.cbx_mx, QLabel('mx'), QLabel('-1'), self.sld_mx, QLabel('1')]:
+        for w in [ self.cbx_mx, QLabel('mx'), QLabel('-0.5'), self.sld_mx, QLabel('0.5')]:
             hbox_px.addWidget(w)
             hbox_px.setAlignment(w, Qt.AlignVCenter)
 
         hbox_py = QHBoxLayout()
-        for w in [ self.cbx_my, QLabel('my'), QLabel('-1'), self.sld_my, QLabel('1')]:
+        for w in [ self.cbx_my, QLabel('my'), QLabel('-0.5'), self.sld_my, QLabel('0.5')]:
             hbox_py.addWidget(w)
             hbox_py.setAlignment(w, Qt.AlignVCenter)
 
         hbox_pz = QHBoxLayout()
-        for w in [ self.cbx_mz, QLabel('mz'), QLabel('-1'), self.sld_mz, QLabel('1')]:
+        for w in [ self.cbx_mz, QLabel('mz'), QLabel('-0.5'), self.sld_mz, QLabel('0.5')]:
             hbox_pz.addWidget(w)
             hbox_pz.setAlignment(w, Qt.AlignVCenter)
 
