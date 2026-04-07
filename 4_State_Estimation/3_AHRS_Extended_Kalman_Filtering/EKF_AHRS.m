@@ -114,6 +114,9 @@ figure;
 plot(t,meas_mag_x,t,meas_mag_y,t,meas_mag_z,t,mag_x,t,mag_y,t,mag_z);
 legend('meas mag x','meas mag y','meas mag z','mag x','mag y','mag z');
 
+%meas_table = table(t',meas_x',meas_y',meas_z',meas_p',meas_q',meas_r',meas_mag_x',meas_mag_y',meas_mag_z','VariableNames',{'time','acc_x','acc_y','acc_z','gyr_x','gyr_y','gyr_z','mag_x','mag_y','mag_z'});
+%writetable(meas_table,'IMU_meas.csv','Delimiter',',');
+
 %% Case 1: Naive "bad" estimates using only accelerometer (& magnetometer) measurements (https://wiki.dfrobot.com/How_to_Use_a_Three-Axis_Accelerometer_for_Tilt_Sensing) %%
 bad_accelonly_roll = -atan2(meas_y,-meas_z);
 bad_accelonly_pitch = atan2(meas_x,sqrt(meas_y.^2+meas_z.^2));
@@ -339,7 +342,7 @@ plot(t,kalman_yaw,t,kalman_pitch,t,kalman_roll,t,real_yaw,t,real_pitch,t,real_ro
 legend('kalman yaw','kalman pitch','kalman roll','real yaw','real pitch','real roll');
 
 %% Plotting
-scenario = 1;  % 1=accelonly , 2=gyroonly , 3=bayesian , 4=kalman
+scenario = 4;  % 1=accelonly , 2=gyroonly , 3=bayesian , 4=kalman
 
 figure;
 ax = axes;
