@@ -1,9 +1,10 @@
 %% Generation of IMU & Magnetometer measurement data %%
 clear all; clc;
-g = 9.81;
+g = 9.81;  %m/s^2
+mag_G = 0.5;  %Gauss
 sigma_pqr = deg2rad(30);  %+-15 deg/s
 sigma_xyz = 0.1*g;  %+-10% of 9.81 m/s^2
-sigma_mag = deg2rad(15);  %+-15 deg
+sigma_mag = 0.1*mag_G;  %+-10% of mag_G
 
 gyro_randwalk_enable = 0;
 
@@ -89,25 +90,34 @@ plot(t,meas_x,t,meas_y,t,meas_z,t,imu_x,t,imu_y,t,imu_z);
 legend('meas x','meas y','meas z','imu x','imu y','imu z');
 
 % Calculate heading and generate noise-corrupted measurements
-mag_heading = NaN*ones(size(t));
-meas_heading = NaN*ones(size(t));
+mag_B = {};
 for i=1:length(t)
-    Eul = rotm2eul(imu_R_SB{i},'ZYX');
-    mag_heading(i) = Eul(1);
-    meas_heading(i) = mag_heading(i) + sigma_mag*randn;
+    mag_B{i} = imu_R_SB{i}' * [mag_G;0;0];  %NED, assumed to be true North-aligned and with zero dip at the operating location
 end
-mag_heading = wrapToPi( mag_heading );
-meas_heading = wrapToPi( meas_heading );
+
+mag_x = NaN*ones(size(t));
+mag_y = NaN*ones(size(t));
+mag_z = NaN*ones(size(t));
+meas_mag_x = NaN*ones(size(t));
+meas_mag_y = NaN*ones(size(t));
+meas_mag_z = NaN*ones(size(t));
+for i=1:length(t)
+    mag_x(i) = mag_B{i}(1);
+    mag_y(i) = mag_B{i}(2);
+    mag_z(i) = mag_B{i}(3);
+    meas_mag_x(i) = mag_x(i) + sigma_mag*randn;
+    meas_mag_y(i) = mag_y(i) + sigma_mag*randn;
+    meas_mag_z(i) = mag_z(i) + sigma_mag*randn;
+end
 
 figure;
-plot(t,meas_heading,t,mag_heading);
-legend('meas heading','mag heading');
+plot(t,meas_mag_x,t,meas_mag_y,t,meas_mag_z,t,mag_x,t,mag_y,t,mag_z);
+legend('meas mag x','meas mag y','meas mag z','mag x','mag y','mag z');
 
-
-%% Case 1: Naive "bad" estimates using only accelerometer measurements (https://wiki.dfrobot.com/How_to_Use_a_Three-Axis_Accelerometer_for_Tilt_Sensing) %%
+%% Case 1: Naive "bad" estimates using only accelerometer (& magnetometer) measurements (https://wiki.dfrobot.com/How_to_Use_a_Three-Axis_Accelerometer_for_Tilt_Sensing) %%
 bad_accelonly_roll = -atan2(meas_y,-meas_z);
 bad_accelonly_pitch = atan2(meas_x,sqrt(meas_y.^2+meas_z.^2));
-bad_accelonly_yaw = meas_heading;
+bad_accelonly_yaw = atan2(-meas_mag_y,meas_mag_x);
 bad_accelonly_R_SB = {};
 for i=1:length(t)
   bad_accelonly_Eul = [bad_accelonly_yaw(i) bad_accelonly_pitch(i) bad_accelonly_roll(i)];
@@ -127,7 +137,7 @@ end
 
 figure;
 plot(t,bad_accelonly_yaw,t,bad_accelonly_pitch,t,bad_accelonly_roll,t,real_yaw,t,real_pitch,t,real_roll);
-legend('bad accelonly yaw','bad accelonly pitch','bad accelonly roll','real yaw','real pitch','real roll');
+legend('bad mag-only yaw','bad accel-only pitch','bad accel-only roll','real yaw','real pitch','real roll');
 
 
 %% Case 2: Gyro dynamical model prediction (https://www.ethaneade.com/latex2html/lie/node11.html) %%
@@ -219,7 +229,7 @@ legend('bayes yaw','bayes pitch','bayes roll','real yaw','real pitch','real roll
 %% Case 4: Quaternion Extended Kalman Filtering (https://ahrs.readthedocs.io/en/latest/filters/ekf.html & https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles) %%
 gyromodel_Sigma = eye(3) * (sigma_pqr)^2;
 accelmodel_Sigma = eye(3) * (sigma_xyz)^2;
-magmodel_Sigma = eye(1) * (sigma_mag)^2;
+magmodel_Sigma = eye(3) * (sigma_mag)^2;
 
 estim_kalman_q_SB_mu = {};
 estim_kalman_q_SB_Sigma = {};
@@ -255,18 +265,22 @@ for i=2:length(t)
   % Update
   gx = 0;
   gy = 0;
-  gz = -g;
+  gz = -1;  % normalized gravity vector
+
+  rx = 1;  % normalized magnetic North vector
+  ry = 0;
+  rz = 0;
 
   qw = predict_q_SB_mu(1);
   qx = predict_q_SB_mu(2);
   qy = predict_q_SB_mu(3);
   qz = predict_q_SB_mu(4);
   predict_R_SB_mu = quat2rotm(predict_q_SB_mu');
-  predict_eul_SB_mu = quat2eul(predict_q_SB_mu','ZYX');
 
   accel_meas = [meas_x(i);
                 meas_y(i);
                 meas_z(i)];
+  accel_meas = accel_meas/norm(accel_meas);  %normalize accel measurement
   predict_accel_meas = predict_R_SB_mu' * [gx;gy;gz];
   innov_accel = accel_meas - predict_accel_meas;
   
@@ -274,34 +288,20 @@ for i=2:length(t)
                    -gx*qz+gz*qx  gx*qy-2*gy*qx+gz*qw  gx*qx+gz*qz           -gx*qw-2*gy*qz+gz*qy;
                    gx*qy-gy*qx   gx*qz-gy*qw-2*gz*qx  gx*qw+gy*qz-2*gz*qy   gx*qx+gy*qy];
 
-  mag_meas = meas_heading(i);
-  predict_mag_meas = predict_eul_SB_mu(1);
+  mag_meas = [meas_mag_x(i);
+              meas_mag_y(i);
+              meas_mag_z(i)];
+  mag_meas = mag_meas/norm(mag_meas);  %normalize mag measurement
+  predict_mag_meas = predict_R_SB_mu' * [rx;ry;rz];
   innov_mag = mag_meas - predict_mag_meas;
 
-  %yaw = atan2( 2*(qw*qz+qx*qy) , 1-2*(qy^2+qz^2) ) = atan( 2*(qw*qz+qx*qy) / (1-2*(qy^2+qz^2)) ) = atan( f ); 
-  dyaw_df = 1 / (1 + (2*(qw*qz+qx*qy) / 1-2*(qy^2+qz^2))^2);
-  df_dqw = 2*qz / (1-2*(qy^2+qz^2));
-  df_dqx = 2*qy / (1-2*(qy^2+qz^2));
-  df_dqy = 2*qx * (2*qy^2-2*qz+1)/(2*qy^2+2*qz-1)^2;
-  df_dqz = 2*qw * (2*qz^2-2*qy+1)/(2*qz^2+2*qy-1)^2;
-  H_mag_qw = dyaw_df * df_dqw;
-  H_mag_qx = dyaw_df * df_dqx;
-  H_mag_qy = dyaw_df * df_dqy;
-  H_mag_qz = dyaw_df * df_dqz;
+  H_mag_q = 2 * [rx*qw+ry*qz-rz*qy   rx*qx+ry*qy+rz*qz  -rx*qy+ry*qx-rz*qw  -rx*qz+ry*qw+rz*qx;
+                 -rx*qz+ry*qw+rz*qx  rx*qy-ry*qx+rz*qw  rx*qx+ry*qy+rz*qz   -rx*qw-ry*qz+rz*qy;
+                 rx*qy-ry*qx+rz*qw   rx*qz-ry*qw-rz*qx  rx*qw+ry*qz-rz*qy   rx*qx+ry*qy+rz*qz];
 
-  H_mag_q = [H_mag_qw H_mag_qx H_mag_qy H_mag_qz];
-
-  if abs(predict_eul_SB_mu(2)) < 0.9*pi/2  % heading considered "reliable" in 90% of the +-90deg flip  
-      %disp('mag');
-      H_q = [H_accel_q;H_mag_q];
-      innov = [innov_accel;innov_mag];
-      R = blkdiag(accelmodel_Sigma,magmodel_Sigma);
-  else
-      %disp('NO mag');
-      H_q = H_accel_q;
-      innov = innov_accel;
-      R = accelmodel_Sigma;
-  end
+  H_q = [H_accel_q;H_mag_q];
+  innov = [innov_accel;innov_mag];
+  R = blkdiag(accelmodel_Sigma,magmodel_Sigma);
 
   S = H_q * predict_q_SB_Sigma * H_q' + R;
   K = predict_q_SB_Sigma * H_q' * pinv(S);
@@ -339,7 +339,7 @@ plot(t,kalman_yaw,t,kalman_pitch,t,kalman_roll,t,real_yaw,t,real_pitch,t,real_ro
 legend('kalman yaw','kalman pitch','kalman roll','real yaw','real pitch','real roll');
 
 %% Plotting
-scenario = 4 ;  % 1=accelonly , 2=gyroonly , 3=bayesian , 4=kalman
+scenario = 1;  % 1=accelonly , 2=gyroonly , 3=bayesian , 4=kalman
 
 figure;
 ax = axes;
